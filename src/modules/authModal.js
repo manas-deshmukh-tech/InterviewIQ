@@ -75,10 +75,7 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
         </div>
 
         <div class="input-group" style="margin-bottom: 0;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label class="input-label" style="font-size: 0.8rem;">Password</label>
-            <span style="font-size: 0.72rem; color: var(--text-muted);">SHA-256</span>
-          </div>
+          <label class="input-label" style="font-size: 0.8rem;">Password</label>
           <input type="password" id="auth-password" class="input-text" style="padding: 0.55rem 0.8rem; font-size: 0.9rem;" placeholder="••••••••" required />
         </div>
 
