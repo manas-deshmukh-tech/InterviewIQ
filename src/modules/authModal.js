@@ -94,16 +94,6 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
           ${currentTab === 'login' ? 'Sign In' : 'Sign Up'}
         </button>
       </form>
-
-      <!-- Quick Demo Account Fillers -->
-      <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--border-subtle); text-align: center;">
-        <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Quick Demo Credentials</span>
-        <div style="display: flex; gap: 0.4rem; justify-content: center; margin-top: 0.45rem; flex-wrap: wrap;">
-          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" data-email="alex@candidate.edu" data-pass="Password123!">Candidate Demo</button>
-          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" data-email="sarah.chen@tech.org" data-pass="Password123!">Mentor (Sarah)</button>
-          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" data-email="admin@interviewiq.internal" data-pass="Password123!">Admin (Marcus)</button>
-        </div>
-      </div>
     `;
   }
 
@@ -168,18 +158,6 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
         radio.checked = true;
         el.style.borderColor = 'var(--primary)';
         el.style.background = 'rgba(99,102,241,0.15)';
-      });
-    });
-
-    // Quick fill credentials
-    root.querySelectorAll('.quick-fill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const emailInput = root.querySelector('#auth-email');
-        const passInput = root.querySelector('#auth-password');
-        if (emailInput && passInput) {
-          emailInput.value = btn.dataset.email;
-          passInput.value = btn.dataset.pass;
-        }
       });
     });
 
