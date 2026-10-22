@@ -138,6 +138,9 @@ export const authState = {
   },
 
   async register({ name, email, password, role, consent }) {
+    if (role === 'Administrator') {
+      throw new Error('Administrator accounts cannot be self-registered. Please sign in with existing admin credentials.');
+    }
     if (!consent) {
       throw new Error('Candidate/User consent is mandatory under privacy regulations.');
     }

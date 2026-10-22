@@ -54,21 +54,16 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
 
           <div class="input-group" style="margin-bottom: 0;">
             <label class="input-label" style="font-size: 0.8rem;">Role-Based Access Level</label>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.15rem;">
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.3rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-top: 0.15rem;">
+              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.5rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
                 <input type="radio" name="auth-role" value="Candidate" checked style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.82rem; color: var(--secondary);">Candidate</div>
-                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">Interviews</div>
+                <div style="font-weight: 700; font-size: 0.85rem; color: var(--secondary);">Candidate</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1px;">Takes Interviews</div>
               </label>
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.3rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
+              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.5rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
                 <input type="radio" name="auth-role" value="Mentor" style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.82rem; color: var(--accent-purple);">Mentor</div>
-                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">Rubrics</div>
-              </label>
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.3rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
-                <input type="radio" name="auth-role" value="Administrator" style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.82rem; color: var(--accent-rose);">Admin</div>
-                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">Audit</div>
+                <div style="font-weight: 700; font-size: 0.85rem; color: var(--accent-purple);">Mentor</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1px;">Reviews Rubrics</div>
               </label>
             </div>
           </div>
