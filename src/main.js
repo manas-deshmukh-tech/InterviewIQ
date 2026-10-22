@@ -179,7 +179,21 @@ export function renderApp() {
     `;
 
     appContainer.querySelector('#landing-login-btn').addEventListener('click', () => {
-      renderAuthModal('login', (u) => { state.currentUser = u; renderApp(); });
+      // Direct demo entry without login popup
+      let demoUser = authState.getUsers().find(u => u.role === 'Candidate') || {
+        id: 'usr_guest_demo',
+        name: 'Demo Candidate',
+        email: 'demo@interviewiq.io',
+        role: 'Candidate',
+        verified: true,
+        targetRole: 'Full Stack Engineer',
+        level: 'Mid Level',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+      };
+      authState.setCurrentUser(demoUser);
+      state.currentUser = demoUser;
+      state.currentView = 'setup';
+      renderApp();
     });
     appContainer.querySelector('#landing-signup-btn').addEventListener('click', () => {
       renderAuthModal('signup', (u) => { state.currentUser = u; renderApp(); });
