@@ -15,8 +15,8 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
 
   function updateView() {
     root.innerHTML = `
-      <div class="modal-content glass-card" style="padding: 2.2rem; max-width: 520px; position: relative;">
-        <button id="close-auth-modal" style="position: absolute; right: 1.5rem; top: 1.5rem; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.5rem;">✕</button>
+      <div class="modal-content glass-card" style="padding: 1.5rem 1.75rem; max-width: 480px; max-height: 90vh; overflow-y: auto; position: relative;">
+        <button id="close-auth-modal" style="position: absolute; right: 1.1rem; top: 1.1rem; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.3rem; line-height: 1;">✕</button>
 
         ${currentTab === 'otp' ? renderOtpStep() : renderStandardForm()}
       </div>
@@ -27,89 +27,89 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
 
   function renderStandardForm() {
     return `
-      <div style="text-align: center; margin-bottom: 1.8rem;">
-        <div style="display: inline-flex; width: 44px; height: 44px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 12px; align-items: center; justify-content: center; margin-bottom: 0.75rem; box-shadow: 0 0 20px rgba(99,102,241,0.4);">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5z"></path></svg>
+      <div style="text-align: center; margin-bottom: 1.1rem;">
+        <div style="display: inline-flex; width: 36px; height: 36px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 10px; align-items: center; justify-content: center; margin-bottom: 0.4rem; box-shadow: 0 0 15px rgba(99,102,241,0.35);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5z"></path></svg>
         </div>
-        <h2 style="font-size: 1.6rem; font-weight: 700; color: #fff;">${currentTab === 'login' ? 'Sign In to InterviewIQ' : 'Create an Account'}</h2>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.3rem;">
-          ${currentTab === 'login' ? 'Access your explainable interview analytics and progress logs' : 'Role-based access with cryptographic SHA-256 and verified consent'}
+        <h2 style="font-size: 1.35rem; font-weight: 700; color: #fff; line-height: 1.2;">${currentTab === 'login' ? 'Sign In to InterviewIQ' : 'Create an Account'}</h2>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
+          ${currentTab === 'login' ? 'Access your explainable interview analytics and progress logs' : 'Role-based access with verified evaluation consent'}
         </p>
 
         <!-- Toggle Tabs -->
-        <div style="display: flex; background: rgba(0,0,0,0.3); padding: 0.25rem; border-radius: var(--radius-sm); margin-top: 1.25rem; border: 1px solid var(--border-subtle);">
-          <button id="tab-login" style="flex: 1; padding: 0.5rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; background: ${currentTab === 'login' ? 'var(--primary)' : 'transparent'}; color: ${currentTab === 'login' ? '#fff' : 'var(--text-secondary)'};">Sign In</button>
-          <button id="tab-signup" style="flex: 1; padding: 0.5rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; background: ${currentTab === 'signup' ? 'var(--primary)' : 'transparent'}; color: ${currentTab === 'signup' ? '#fff' : 'var(--text-secondary)'};">Register</button>
+        <div style="display: flex; background: rgba(0,0,0,0.3); padding: 0.2rem; border-radius: var(--radius-sm); margin-top: 0.85rem; border: 1px solid var(--border-subtle);">
+          <button id="tab-login" style="flex: 1; padding: 0.38rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; background: ${currentTab === 'login' ? 'var(--primary)' : 'transparent'}; color: ${currentTab === 'login' ? '#fff' : 'var(--text-secondary)'};">Sign In</button>
+          <button id="tab-signup" style="flex: 1; padding: 0.38rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; background: ${currentTab === 'signup' ? 'var(--primary)' : 'transparent'}; color: ${currentTab === 'signup' ? '#fff' : 'var(--text-secondary)'};">Register</button>
         </div>
       </div>
 
-      <div id="auth-alert" style="display: none; padding: 0.75rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.2rem; font-size: 0.85rem;"></div>
+      <div id="auth-alert" style="display: none; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); margin-bottom: 0.8rem; font-size: 0.8rem;"></div>
 
-      <form id="auth-form">
+      <form id="auth-form" style="display: flex; flex-direction: column; gap: 0.75rem;">
         ${currentTab === 'signup' ? `
-          <div class="input-group">
-            <label class="input-label">Full Name</label>
-            <input type="text" id="auth-name" class="input-text" placeholder="e.g. John Doe" required />
+          <div class="input-group" style="margin-bottom: 0;">
+            <label class="input-label" style="font-size: 0.8rem;">Full Name</label>
+            <input type="text" id="auth-name" class="input-text" style="padding: 0.55rem 0.8rem; font-size: 0.9rem;" placeholder="e.g. John Doe" required />
           </div>
 
-          <div class="input-group">
-            <label class="input-label">Role-Based Access Level</label>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 0.25rem;">
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.75rem 0.5rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
+          <div class="input-group" style="margin-bottom: 0;">
+            <label class="input-label" style="font-size: 0.8rem;">Role-Based Access Level</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.15rem;">
+              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.3rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
                 <input type="radio" name="auth-role" value="Candidate" checked style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.9rem; color: var(--secondary);">Candidate</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Takes Interviews</div>
+                <div style="font-weight: 700; font-size: 0.82rem; color: var(--secondary);">Candidate</div>
+                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">Interviews</div>
               </label>
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.75rem 0.5rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
+              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.3rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
                 <input type="radio" name="auth-role" value="Mentor" style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.9rem; color: var(--accent-purple);">Mentor</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Reviews Rubrics</div>
+                <div style="font-weight: 700; font-size: 0.82rem; color: var(--accent-purple);">Mentor</div>
+                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">Rubrics</div>
               </label>
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.75rem 0.5rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
+              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.3rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
                 <input type="radio" name="auth-role" value="Administrator" style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.9rem; color: var(--accent-rose);">Admin</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">System Audit</div>
+                <div style="font-weight: 700; font-size: 0.82rem; color: var(--accent-rose);">Admin</div>
+                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">Audit</div>
               </label>
             </div>
           </div>
         ` : ''}
 
-        <div class="input-group">
-          <label class="input-label">Email Address</label>
-          <input type="email" id="auth-email" class="input-text" placeholder="you@university.edu" required />
+        <div class="input-group" style="margin-bottom: 0;">
+          <label class="input-label" style="font-size: 0.8rem;">Email Address</label>
+          <input type="email" id="auth-email" class="input-text" style="padding: 0.55rem 0.8rem; font-size: 0.9rem;" placeholder="you@university.edu" required />
         </div>
 
-        <div class="input-group">
+        <div class="input-group" style="margin-bottom: 0;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label class="input-label">Password</label>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Hashed with SHA-256</span>
+            <label class="input-label" style="font-size: 0.8rem;">Password</label>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">SHA-256</span>
           </div>
-          <input type="password" id="auth-password" class="input-text" placeholder="••••••••" required />
+          <input type="password" id="auth-password" class="input-text" style="padding: 0.55rem 0.8rem; font-size: 0.9rem;" placeholder="••••••••" required />
         </div>
 
         ${currentTab === 'signup' ? `
-          <div style="margin: 1.2rem 0; padding: 0.9rem; background: rgba(0,0,0,0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
-            <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
-              <input type="checkbox" id="auth-consent" style="margin-top: 3px; accent-color: var(--primary);" required />
+          <div style="margin: 0.2rem 0; padding: 0.6rem 0.75rem; background: rgba(0,0,0,0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.76rem; color: var(--text-secondary); line-height: 1.35;">
+              <input type="checkbox" id="auth-consent" style="margin-top: 2px; accent-color: var(--primary);" required />
               <span>
-                <strong style="color: #fff;">Candidate Privacy & Telemetry Consent:</strong> I agree to the AI evaluation terms, optional voice recording storage, and understand my delivery baseline is private and deletable at any time.
+                <strong style="color: #fff;">Candidate Consent:</strong> I agree to the AI evaluation terms and privacy policy.
               </span>
             </label>
           </div>
         ` : ''}
 
-        <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="width: 100%; padding: 0.7rem; font-size: 0.95rem; margin-top: 0.25rem;">
           ${currentTab === 'login' ? 'Sign In' : 'Sign Up'}
         </button>
       </form>
 
       <!-- Quick Demo Account Fillers -->
-      <div style="margin-top: 1.5rem; padding-top: 1.2rem; border-top: 1px solid var(--border-subtle); text-align: center;">
-        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Quick Demo Credentials</span>
-        <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.6rem; flex-wrap: wrap;">
-          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" data-email="alex@candidate.edu" data-pass="Password123!">Candidate Demo</button>
-          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" data-email="sarah.chen@tech.org" data-pass="Password123!">Mentor (Sarah)</button>
-          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" data-email="admin@interviewiq.internal" data-pass="Password123!">Admin (Marcus)</button>
+      <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--border-subtle); text-align: center;">
+        <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Quick Demo Credentials</span>
+        <div style="display: flex; gap: 0.4rem; justify-content: center; margin-top: 0.45rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" data-email="alex@candidate.edu" data-pass="Password123!">Candidate Demo</button>
+          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" data-email="sarah.chen@tech.org" data-pass="Password123!">Mentor (Sarah)</button>
+          <button type="button" class="btn btn-secondary btn-sm quick-fill-btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" data-email="admin@interviewiq.internal" data-pass="Password123!">Admin (Marcus)</button>
         </div>
       </div>
     `;
