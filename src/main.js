@@ -150,30 +150,54 @@ export function renderApp() {
   updateHeader();
 
   if (!state.currentUser) {
-    // Show Welcome Landing with instant sign-in prompt
+    // Show Welcome Landing with instant sign-in prompt and large corner images
     appContainer.innerHTML = `
-      <div class="fade-in" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; max-width: 820px; min-height: calc(100vh - 160px); margin: 0 auto; padding: 2rem 1rem;">
-        <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.18; color: #fff; margin-bottom: 1.25rem;">
-          AI Mock Interviews That <br><span style="background: linear-gradient(135deg, var(--secondary), var(--primary-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Explain Every Score</span>
-        </h1>
-        <p style="font-size: 1.25rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 2.25rem; max-width: 680px;">
-          Practice live voice and video interviews tailored to your role and resume, and see exactly what to improve.
-        </p>
+      <div style="position: relative; min-height: calc(100vh - 120px); display: flex; align-items: center; justify-content: center; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); overflow: hidden; padding: 1rem 0;">
+        
+        <!-- Left Side Bottom Corner: Boy photo with subtle edge fade -->
+        <div style="position: absolute; left: 0; bottom: 0; width: 440px; height: 290px; pointer-events: none; z-index: 5; overflow: hidden; -webkit-mask-image: radial-gradient(circle at bottom left, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 98%); mask-image: radial-gradient(circle at bottom left, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 98%);">
+          <img 
+            src="/boy-interview.webp" 
+            alt="Male candidate interview practice" 
+            style="width: 100%; height: 100%; object-fit: cover; display: block;"
+            loading="eager"
+          />
+        </div>
 
-        <div style="display: flex; gap: 1.75rem; justify-content: center; flex-wrap: wrap;">
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 250px;">
-            <button type="button" id="landing-login-btn" class="btn btn-primary btn-lg" style="box-shadow: 0 0 30px rgba(99,102,241,0.5); width: 100%; height: 56px; font-size: 1.12rem; display: inline-flex; align-items: center; justify-content: center;">
-              Try Free Demo
-            </button>
-            <span style="font-size: 0.9rem; color: var(--text-muted, #94a3b8); font-weight: 500;">No sign-up needed</span>
-          </div>
+        <!-- Center Hero Content -->
+        <div class="fade-in" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem; position: relative; z-index: 10;">
+          <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.18; color: #fff; margin-bottom: 1.25rem;">
+            AI Mock Interviews That <br><span style="background: linear-gradient(135deg, var(--secondary), var(--primary-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Explain Every Score</span>
+          </h1>
+          <p style="font-size: 1.25rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 2.25rem; max-width: 680px;">
+            Practice live voice and video interviews tailored to your role and resume, and see exactly what to improve.
+          </p>
 
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 250px;">
-            <button type="button" id="landing-signup-btn" class="btn btn-secondary btn-lg" style="width: 100%; height: 56px; font-size: 1.12rem; display: inline-flex; align-items: center; justify-content: center;">
-              Create Free Account
-            </button>
-            <span style="font-size: 0.9rem; color: var(--text-muted, #94a3b8); font-weight: 500;">Get detailed analysis and track your progress</span>
+          <div style="display: flex; gap: 1.75rem; justify-content: center; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 250px;">
+              <button type="button" id="landing-login-btn" class="btn btn-primary btn-lg" style="box-shadow: 0 0 30px rgba(99,102,241,0.5); width: 100%; height: 56px; font-size: 1.12rem; display: inline-flex; align-items: center; justify-content: center;">
+                Try Free Demo
+              </button>
+              <span style="font-size: 0.9rem; color: var(--text-muted, #94a3b8); font-weight: 500;">No sign-up needed</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 250px;">
+              <button type="button" id="landing-signup-btn" class="btn btn-secondary btn-lg" style="width: 100%; height: 56px; font-size: 1.12rem; display: inline-flex; align-items: center; justify-content: center;">
+                Create Free Account
+              </button>
+              <span style="font-size: 0.9rem; color: var(--text-muted, #94a3b8); font-weight: 500;">Get detailed analysis and track your progress</span>
+            </div>
           </div>
+        </div>
+
+        <!-- Right Side Bottom Corner: Girl photo with subtle edge fade -->
+        <div style="position: absolute; right: 0; bottom: 0; width: 440px; height: 290px; pointer-events: none; z-index: 5; overflow: hidden; -webkit-mask-image: radial-gradient(circle at bottom right, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 98%); mask-image: radial-gradient(circle at bottom right, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 98%);">
+          <img 
+            src="/girl-interview.webp" 
+            alt="Female candidate interview practice" 
+            style="width: 100%; height: 100%; object-fit: cover; display: block;"
+            loading="eager"
+          />
         </div>
       </div>
     `;
