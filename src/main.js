@@ -150,9 +150,9 @@ export function renderApp() {
   updateHeader();
 
   if (!state.currentUser) {
-    // Show Welcome Landing with instant sign-in prompt and large corner images
+    // Show Welcome Landing with content positioned near top navbar and corner images
     appContainer.innerHTML = `
-      <div style="position: relative; min-height: calc(100vh - 120px); display: flex; align-items: center; justify-content: center; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); overflow: hidden; padding: 1rem 0;">
+      <div style="position: relative; min-height: calc(100vh - 90px); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); overflow: hidden; padding-top: 1.5rem; margin-top: -1rem;">
         
         <!-- Left Side Bottom Corner: Boy photo with subtle edge fade -->
         <div style="position: absolute; left: 0; bottom: 0; width: 440px; height: 290px; pointer-events: none; z-index: 5; overflow: hidden; -webkit-mask-image: radial-gradient(circle at bottom left, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 98%); mask-image: radial-gradient(circle at bottom left, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 98%);">
@@ -164,12 +164,12 @@ export function renderApp() {
           />
         </div>
 
-        <!-- Center Hero Content -->
-        <div class="fade-in" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem; position: relative; z-index: 10;">
-          <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.18; color: #fff; margin-bottom: 1.25rem;">
+        <!-- Center Hero Content (Positioned close to the top navbar) -->
+        <div class="fade-in" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; max-width: 820px; margin: 0 auto; padding: 0.5rem 1.5rem 1.5rem 1.5rem; position: relative; z-index: 10;">
+          <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.18; color: #fff; margin-bottom: 1.15rem;">
             AI Mock Interviews That <br><span style="background: linear-gradient(135deg, var(--secondary), var(--primary-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Explain Every Score</span>
           </h1>
-          <p style="font-size: 1.25rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 2.25rem; max-width: 680px;">
+          <p style="font-size: 1.25rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 2rem; max-width: 680px;">
             Practice live voice and video interviews tailored to your role and resume, and see exactly what to improve.
           </p>
 
