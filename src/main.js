@@ -161,7 +161,7 @@ export function renderApp() {
   if (isLanding) {
     // Show Welcome Landing that exactly matches the format in the user's reference image
     appContainer.innerHTML = `
-      <div class="landing-page-container" style="position: relative; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); height: calc(100vh - 65px); max-height: calc(100vh - 65px); background: #060913; background-image: radial-gradient(circle at 65% 25%, #0d2859 0%, #08142c 45%, #050814 100%); color: #ffffff; padding: 1.25rem 3.5rem; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5rem; box-sizing: border-box;">
+      <div class="landing-page-container" style="position: relative; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); min-height: calc(100vh - 65px); background: #060913; background-image: radial-gradient(circle at 65% 25%, #0d2859 0%, #08142c 45%, #050814 100%); color: #ffffff; padding: 2rem 3.5rem 3rem 3.5rem; display: flex; flex-direction: column; gap: 2.75rem; box-sizing: border-box;">
         
         <!-- Decorative Ambient Sparkle Elements -->
         <span style="position: absolute; top: 35px; right: 40px; color: #94a3b8; opacity: 0.5; font-size: 1.4rem; pointer-events: none;">✦</span>
@@ -170,30 +170,30 @@ export function renderApp() {
         <span style="position: absolute; bottom: 65px; right: 35px; color: #94a3b8; opacity: 0.55; font-size: 1.6rem; pointer-events: none;">✦</span>
 
         <!-- UPPER HERO SECTION -->
-        <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 1.3fr; gap: 2rem; align-items: center; position: relative; z-index: 2; margin-bottom: 0;">
+        <div style="max-width: 1400px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 1.3fr; gap: 2.5rem; align-items: center; position: relative; z-index: 2;">
           
-          <!-- LEFT COLUMN: Headline, Paragraph, CTAs (Shifted further upwards) -->
-          <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; z-index: 10; padding-top: 0; margin-top: -1rem;">
-                 <!-- Main Hero Headline -->
-            <h1 class="landing-headline" style="font-size: 3.1rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 0.75rem;">
+          <!-- LEFT COLUMN: Headline, Paragraph, CTAs -->
+          <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; z-index: 10;">
+            <!-- Main Hero Headline -->
+            <h1 class="landing-headline" style="font-size: 3.1rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 0.85rem;">
               AI Mock Interviews <br/>
               That <br/>
               <span style="background: linear-gradient(135deg, #38bdf8 0%, #818cf8 40%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Explain Every Score</span>
             </h1>
 
             <!-- Subtitle -->
-            <p class="landing-subtitle" style="font-size: 1rem; line-height: 1.45; margin-bottom: 1.15rem; max-width: 480px; font-weight: 400;">
+            <p class="landing-subtitle" style="font-size: 1.05rem; line-height: 1.5; margin-bottom: 1.35rem; max-width: 500px; font-weight: 400;">
               Practice live voice and video interviews tailored to your role and resume, and see exactly what to improve.
             </p>
 
             <!-- Dual CTA Buttons -->
-            <div style="display: flex; gap: 1.15rem; align-items: center; flex-wrap: wrap;">
-              <button type="button" id="landing-demo-btn" class="btn btn-primary" style="background: #0284c7; background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); border: none; color: #ffffff !important; padding: 0.8rem 1.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 20px rgba(14, 165, 233, 0.4); cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;">
+            <div style="display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap;">
+              <button type="button" id="landing-demo-btn" class="btn btn-primary" style="background: #0284c7; background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); border: none; color: #ffffff !important; padding: 0.85rem 1.85rem; border-radius: 9999px; font-weight: 600; font-size: 0.98rem; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 20px rgba(14, 165, 233, 0.4); cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;">
                 <span>Try Free Demo</span>
-                <span style="font-size: 1.1rem; line-height: 1;">→</span>
+                <span style="font-size: 1.15rem; line-height: 1;">→</span>
               </button>
 
-              <button type="button" id="landing-account-btn" style="padding: 0.8rem 1.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.95rem; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s ease, border-color 0.2s ease;">
+              <button type="button" id="landing-account-btn" style="padding: 0.85rem 1.85rem; border-radius: 9999px; font-weight: 600; font-size: 0.98rem; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s ease, border-color 0.2s ease;">
                 Create Free Account
               </button>
             </div>
@@ -204,10 +204,10 @@ export function renderApp() {
           <div style="position: relative; width: 100%; min-height: 330px; display: flex; align-items: center; justify-content: flex-start;">
             
             <!-- Radial Glow behind Laptop Mockup -->
-            <div style="position: absolute; left: 10%; top: 5%; width: 400px; height: 280px; background: radial-gradient(circle, rgba(37, 99, 235, 0.45) 0%, rgba(99, 102, 241, 0.2) 50%, transparent 75%); filter: blur(45px); pointer-events: none; z-index: 1;"></div>
+            <div style="position: absolute; left: 10%; top: 5%; width: 420px; height: 280px; background: radial-gradient(circle, rgba(37, 99, 235, 0.45) 0%, rgba(99, 102, 241, 0.2) 50%, transparent 75%); filter: blur(45px); pointer-events: none; z-index: 1;"></div>
 
-            <!-- Laptop Device Mockup with Split Screen (Shifted more to the left) -->
-            <div style="position: relative; z-index: 3; width: 490px; margin-left: -70px;">
+            <!-- Laptop Device Mockup with Split Screen -->
+            <div style="position: relative; z-index: 3; width: 490px; margin-left: -50px;">
               
               <!-- Laptop Screen -->
               <div style="background: #111827; border-radius: 12px 12px 0 0; padding: 5px 6px 0 6px; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(37, 99, 235, 0.35); border: 1.5px solid #2d3b50; border-bottom: none; position: relative;">
@@ -216,7 +216,7 @@ export function renderApp() {
                 <div style="width: 5px; height: 5px; background: #64748b; border-radius: 50%; margin: 0 auto 4px auto;"></div>
 
                 <!-- Screen Contents (Left Candidate Video, Right HUD) -->
-                <div style="position: relative; width: 100%; height: 230px; border-radius: 6px 6px 0 0; overflow: hidden; background: #070d1e; display: grid; grid-template-columns: 1fr 1fr;">
+                <div style="position: relative; width: 100%; height: 220px; border-radius: 6px 6px 0 0; overflow: hidden; background: #070d1e; display: grid; grid-template-columns: 1fr 1fr;">
                   
                   <!-- Left: Candidate Live Feed -->
                   <div style="position: relative; height: 100%; overflow: hidden; border-right: 1px solid rgba(255,255,255,0.08);">
@@ -342,69 +342,88 @@ export function renderApp() {
 
         </div>
 
-        <!-- LOWER SECTION: "Why Choose InterviewIQ" (4 Feature Cards - Directly below Try Free Demo button) -->
-        <div style="max-width: 1400px; width: 100%; margin: 0 auto; z-index: 2; margin-top: 0;">
+        <!-- LOWER SECTION: "Why Choose InterviewIQ" (Single Unified Frame: Man + 4 Feature Cards + Lady) -->
+        <div style="max-width: 1400px; width: 100%; margin: 0 auto; z-index: 2;">
           
-          <h2 class="landing-feature-heading" style="font-size: 1.65rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.65rem; text-align: left;">
+          <h2 class="landing-feature-heading" style="font-size: 1.55rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.85rem; text-align: left;">
             Why Choose InterviewIQ
           </h2>
 
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+          <!-- ONE CONTINUOUS UNIFIED FRAME -->
+          <div class="landing-feature-frame" style="display: grid; grid-template-columns: 210px repeat(4, 1fr) 210px; gap: 0; border-radius: 16px; overflow: hidden; border: 1.5px solid rgba(59, 130, 246, 0.35); background: rgba(13, 22, 44, 0.7); backdrop-filter: blur(12px); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(37, 99, 235, 0.15);">
             
-            <!-- Card 1: Real-Time Voice & Video Simulation -->
-            <div class="landing-feature-card" style="border-radius: 12px; padding: 1.15rem 1.25rem; display: flex; flex-direction: column; text-align: left; transition: transform 0.2s ease, border-color 0.2s ease;">
-              <div style="margin-bottom: 0.75rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.35rem; height: 34px;">
+            <!-- Column 1: Left End Photo (Man in Suit / Interviewer) -->
+            <div class="landing-feature-side-photo" style="position: relative; height: 100%; min-height: 220px; overflow: hidden; border-right: 1px solid rgba(59, 130, 246, 0.25); background: #070e20;">
+              <img 
+                src="/man-suit-left.jpg" 
+                alt="Executive interviewer in suit" 
+                style="width: 100%; height: 100%; object-fit: cover; object-position: 55% 15%; display: block; filter: contrast(1.05) brightness(1.02);" 
+              />
+            </div>
+
+            <!-- Column 2: Card 1 - Real-Time Voice & Video Simulation -->
+            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.85rem 1.25rem; min-height: 220px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div style="margin-bottom: 1.15rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.4rem; height: 36px;">
                 <span style="color: #38bdf8;">🎙️</span>
                 <span style="color: #a855f7; font-size: 1.45rem;">▶️</span>
               </div>
-              <h3 style="font-size: 1.05rem; font-weight: 700; line-height: 1.25; margin-bottom: 0.5rem;">
+              <h3 style="font-size: 1.02rem; font-weight: 700; line-height: 1.35; margin-bottom: 0.85rem;">
                 Real-Time Voice & Video Simulation
               </h3>
-              <p style="font-size: 0.84rem; line-height: 1.42;">
+              <p style="font-size: 0.82rem; line-height: 1.52; margin: 0; opacity: 0.9;">
                 Practice live voice and video interviews that accurately mimic actual high-stakes hiring environments.
               </p>
             </div>
 
-            <!-- Card 2: Precise Identification of What Needs Improvement -->
-            <div class="landing-feature-card" style="border-radius: 12px; padding: 1.15rem 1.25rem; display: flex; flex-direction: column; text-align: left; transition: transform 0.2s ease, border-color 0.2s ease;">
-              <div style="margin-bottom: 0.75rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.35rem; height: 34px;">
+            <!-- Column 3: Card 2 - Precise Identification of What Needs Improvement -->
+            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.85rem 1.25rem; min-height: 220px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div style="margin-bottom: 1.15rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.4rem; height: 36px;">
                 <span style="color: #38bdf8;">📍</span>
-                <span style="color: #60a5fa; font-size: 1.55rem;">🔍</span>
+                <span style="color: #60a5fa; font-size: 1.5rem;">🔍</span>
               </div>
-              <h3 style="font-size: 1.05rem; font-weight: 700; line-height: 1.25; margin-bottom: 0.5rem;">
+              <h3 style="font-size: 1.02rem; font-weight: 700; line-height: 1.35; margin-bottom: 0.85rem;">
                 Precise Identification of What Needs Improvement
               </h3>
-              <p style="font-size: 0.84rem; line-height: 1.42;">
+              <p style="font-size: 0.82rem; line-height: 1.52; margin: 0; opacity: 0.9;">
                 Pinpoint exact areas—such as filler-word frequency, pacing issues, or gaps in technical clarity—instead of giving you vague feedback.
               </p>
             </div>
 
-            <!-- Card 3: Tailored to Your Specific Role & Resume -->
-            <div class="landing-feature-card" style="border-radius: 12px; padding: 1.15rem 1.25rem; display: flex; flex-direction: column; text-align: left; transition: transform 0.2s ease, border-color 0.2s ease;">
-              <div style="margin-bottom: 0.75rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.35rem; height: 34px;">
+            <!-- Column 4: Card 3 - Tailored to Your Specific Role & Resume -->
+            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.85rem 1.25rem; min-height: 220px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div style="margin-bottom: 1.15rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.4rem; height: 36px;">
                 <span style="color: #60a5fa;">📄</span>
                 <span style="color: #f43f5e; font-size: 1.45rem;">🎯</span>
               </div>
-              <h3 style="font-size: 1.05rem; font-weight: 700; line-height: 1.25; margin-bottom: 0.5rem;">
+              <h3 style="font-size: 1.02rem; font-weight: 700; line-height: 1.35; margin-bottom: 0.85rem;">
                 Tailored to Your Specific Role & Resume
               </h3>
-              <p style="font-size: 0.84rem; line-height: 1.42;">
+              <p style="font-size: 0.82rem; line-height: 1.52; margin: 0; opacity: 0.9;">
                 Receive evaluation metrics customized strictly to your target job description, seniority level, and background.
               </p>
             </div>
 
-            <!-- Card 4: Clear Performance Breakdown & Scoring -->
-            <div class="landing-feature-card" style="border-radius: 12px; padding: 1.15rem 1.25rem; display: flex; flex-direction: column; text-align: left; transition: transform 0.2s ease, border-color 0.2s ease;">
-              <div style="margin-bottom: 0.75rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.35rem; height: 34px;">
+            <!-- Column 5: Card 4 - Clear Performance Breakdown & Scoring -->
+            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.85rem 1.25rem; min-height: 220px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div style="margin-bottom: 1.15rem; font-size: 1.85rem; display: flex; align-items: center; gap: 0.4rem; height: 36px;">
                 <span style="color: #38bdf8;">📈</span>
-                <span style="color: #3b82f6; font-size: 1.4rem;">🛡️</span>
+                <span style="color: #3b82f6; font-size: 1.45rem;">🛡️</span>
               </div>
-              <h3 style="font-size: 1.05rem; font-weight: 700; line-height: 1.25; margin-bottom: 0.5rem;">
+              <h3 style="font-size: 1.02rem; font-weight: 700; line-height: 1.35; margin-bottom: 0.85rem;">
                 Clear Performance Breakdown & Scoring
               </h3>
-              <p style="font-size: 0.84rem; line-height: 1.42;">
+              <p style="font-size: 0.82rem; line-height: 1.52; margin: 0; opacity: 0.9;">
                 See an evidence-based breakdown of every score so you always know precisely what to fix before your actual interview.
               </p>
+            </div>
+
+            <!-- Column 6: Right End Photo (Lady Candidate with Laptop) -->
+            <div style="position: relative; height: 100%; min-height: 220px; overflow: hidden; background: #070e20;">
+              <img 
+                src="/lady-candidate-right.jpg" 
+                alt="Candidate practicing mock interview" 
+                style="width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; filter: contrast(1.05) brightness(1.02);" 
+              />
             </div>
 
           </div>
@@ -412,7 +431,7 @@ export function renderApp() {
         </div>
 
         <!-- BOTTOM BANNER: Ready to Ace Your Next Interview? -->
-        <div class="landing-bottom-banner" style="max-width: 1400px; width: 100%; margin: 0 auto; z-index: 2; background: linear-gradient(90deg, rgba(79, 70, 229, 0.4) 0%, rgba(37, 99, 235, 0.35) 50%, rgba(6, 182, 212, 0.25) 100%); border: 1px solid rgba(99, 102, 241, 0.4); backdrop-filter: blur(12px); border-radius: 14px; padding: 0.75rem 1.75rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 30px rgba(79, 70, 229, 0.25);">
+        <div class="landing-bottom-banner" style="max-width: 1400px; width: 100%; margin: 0 auto; z-index: 2; background: linear-gradient(90deg, rgba(79, 70, 229, 0.4) 0%, rgba(37, 99, 235, 0.35) 50%, rgba(6, 182, 212, 0.25) 100%); border: 1px solid rgba(99, 102, 241, 0.4); backdrop-filter: blur(12px); border-radius: 14px; padding: 0.85rem 1.75rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 30px rgba(79, 70, 229, 0.25);">
           
           <div style="display: flex; align-items: center; justify-content: center;">
             <!-- Eye-catching Text Centered -->

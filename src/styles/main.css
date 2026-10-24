@@ -868,22 +868,22 @@ body {
   background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(192, 132, 252, 0.15) 50%, rgba(255,255,255,0) 75%);
 }
 
-/* Hard scroll lock for landing view */
+/* Landing view layout: allow clean natural scrolling so all sections and bottom banners remain 100% visible */
 body.landing-no-scroll,
 html.landing-no-scroll {
-  overflow: hidden !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  min-height: 100vh !important;
 }
 
 body.landing-no-scroll #app.container {
   padding: 0 !important;
   max-width: 100vw !important;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
 }
 
 .landing-page-container {
-  overflow: hidden !important;
+  overflow-x: hidden !important;
 }
 
 /* ==========================================================
@@ -949,10 +949,20 @@ body.landing-no-scroll #app.container {
   border-color: #6366f1 !important;
 }
 
+[data-theme="light"] .landing-feature-frame {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 16px 35px rgba(99, 102, 241, 0.12) !important;
+}
+
 [data-theme="light"] .landing-feature-card {
-  background: rgba(255, 255, 255, 0.85) !important;
-  border: 1px solid rgba(99, 102, 241, 0.2) !important;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.08) !important;
+  background: transparent !important;
+  border-right-color: rgba(99, 102, 241, 0.2) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="light"] .landing-feature-side-photo {
+  border-right-color: rgba(99, 102, 241, 0.2) !important;
 }
 
 /* --- Floating Feedback Badge Pill --- */
