@@ -1,0 +1,21 @@
+{
+  "name": "interview-iq",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "canvas-confetti": "^1.9.4",
+    "lucide": "^1.57.0",
+    "vite": "^8.3.4"
+  },
+  "dependencies": {
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^6.4.299"
+  }
+}
