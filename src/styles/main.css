@@ -61,7 +61,8 @@
   --primary: #4f46e5;
   --primary-light: #6366f1;
   --primary-dark: #4338ca;
-  --secondary: #0891b2;
+  --secondary: #0284c7;
+  --accent-purple: #7e22ce;
 
   /* Text Colors */
   --text-main: #0f172a;
@@ -105,7 +106,7 @@
 [data-theme="light"] .navbar [style*="color: #fff"],
 [data-theme="light"] .glass-card [style*="color: #fff"],
 [data-theme="light"] .modal-content [style*="color: #fff"]:not(.btn):not(.btn *):not(.badge):not(.badge *),
-[data-theme="light"] .container [style*="color: #fff"]:not(.btn):not(.btn *):not(.badge):not(.badge *) {
+[data-theme="light"] .container [style*="color: #fff"]:not(.btn):not(.btn *):not(.badge):not(.badge *):not(.laptop-hud-screen):not(.laptop-hud-screen *) {
   color: var(--text-main) !important;
 }
 
@@ -332,6 +333,21 @@ body {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+[data-theme="light"] .btn-secondary {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1.5px solid #cbd5e1 !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .btn-secondary:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
 .btn-danger {
   background: rgba(244, 63, 94, 0.15);
   color: #fda4af;
@@ -424,6 +440,96 @@ body {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.role-selector {
+  cursor: pointer;
+  border: 1.5px solid var(--border-subtle);
+  padding: 0.6rem 0.65rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  background: rgba(15, 23, 42, 0.45);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.role-selector:hover {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.role-selector.active {
+  border-color: var(--primary) !important;
+  background: rgba(99, 102, 241, 0.15) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+.role-selector-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin-bottom: 2px;
+}
+
+.role-selector-desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+[data-theme="light"] .role-selector {
+  background: #f8fafc !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+[data-theme="light"] .role-selector:hover {
+  background: #eef2ff !important;
+  border-color: var(--primary) !important;
+}
+
+[data-theme="light"] .role-selector.active {
+  background: #e0e7ff !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 2px 10px rgba(79, 70, 229, 0.15) !important;
+}
+
+[data-theme="light"] .role-selector .role-selector-desc {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+.auth-toggle-tabs {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-subtle);
+}
+
+.auth-toggle-btn {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.auth-toggle-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+[data-theme="light"] .auth-toggle-tabs {
+  background: #e2e8f0 !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+[data-theme="light"] .auth-toggle-btn.active {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3) !important;
+}
+
+[data-theme="light"] .auth-toggle-btn:not(.active) {
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] .auth-toggle-btn:not(.active):hover {
+  color: var(--primary) !important;
 }
 
 /* Audio Visualizer Wave */
@@ -868,22 +974,42 @@ body {
   background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(192, 132, 252, 0.15) 50%, rgba(255,255,255,0) 75%);
 }
 
-/* Hard scroll lock for landing view */
+/* Landing view layout: lock first page strictly within viewport (no scroll) */
 body.landing-no-scroll,
 html.landing-no-scroll {
   overflow: hidden !important;
   height: 100vh !important;
   max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.landing-no-scroll {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.landing-no-scroll .navbar {
+  flex-shrink: 0 !important;
+  padding: 0.65rem 2rem !important;
 }
 
 body.landing-no-scroll #app.container {
   padding: 0 !important;
   max-width: 100vw !important;
   overflow: hidden !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 .landing-page-container {
   overflow: hidden !important;
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
 }
 
 /* ==========================================================
@@ -949,10 +1075,20 @@ body.landing-no-scroll #app.container {
   border-color: #6366f1 !important;
 }
 
+[data-theme="light"] .landing-feature-frame {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 16px 35px rgba(99, 102, 241, 0.12) !important;
+}
+
 [data-theme="light"] .landing-feature-card {
-  background: rgba(255, 255, 255, 0.85) !important;
-  border: 1px solid rgba(99, 102, 241, 0.2) !important;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.08) !important;
+  background: transparent !important;
+  border-right-color: rgba(99, 102, 241, 0.2) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="light"] .landing-feature-side-photo {
+  border-right-color: rgba(99, 102, 241, 0.2) !important;
 }
 
 /* --- Floating Feedback Badge Pill --- */
@@ -980,25 +1116,53 @@ body.landing-no-scroll #app.container {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
 }
 
-/* Ensure the dark laptop screen mockup content (Score 82, HUD text) stays white in light mode */
+/* Ensure the dark laptop screen mockup content (Score 82, HUD text, AI Analysis) stays crisp and visible in both light & dark modes */
+.laptop-hud-screen {
+  background: #091224 !important;
+  color: #ffffff !important;
+}
+
+.laptop-hud-screen * {
+  box-sizing: border-box;
+}
+
 [data-theme="light"] .laptop-hud-screen,
 [data-theme="light"] .laptop-hud-screen span,
 [data-theme="light"] .laptop-hud-screen div,
+[data-theme="light"] .laptop-hud-screen .hud-title,
+[data-theme="light"] .laptop-hud-screen [style*="color: #ffffff"],
+[data-theme="light"] .laptop-hud-screen [style*="color: #f8fafc"],
 [data-theme="light"] .laptop-mockup-score-number {
   color: #ffffff !important;
+}
+
+[data-theme="light"] .laptop-hud-screen [style*="color: #cbd5e1"] {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="light"] .laptop-hud-screen [style*="color: #94a3b8"] {
+  color: #93c5fd !important;
+}
+
+[data-theme="light"] .laptop-hud-screen [style*="color: #38bdf8"] {
+  color: #38bdf8 !important;
 }
 
 /* --- Bottom Banner Styling --- */
 .landing-bottom-banner {
   background: linear-gradient(90deg, rgba(79, 70, 229, 0.42) 0%, rgba(37, 99, 235, 0.38) 50%, rgba(6, 182, 212, 0.28) 100%) !important;
-  border: 1px solid rgba(129, 140, 248, 0.45) !important;
-  box-shadow: 0 10px 32px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  border-top: 1px solid rgba(129, 140, 248, 0.45) !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-radius: 0 !important;
+  box-shadow: 0 -8px 32px rgba(37, 99, 235, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
   transition: all 0.25s ease;
 }
 
 .landing-bottom-banner:hover {
-  border-color: rgba(168, 85, 247, 0.6) !important;
-  box-shadow: 0 12px 38px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border-top-color: rgba(168, 85, 247, 0.6) !important;
+  box-shadow: 0 -10px 38px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
 }
 
 #landing-banner-start-btn:hover {
@@ -1008,8 +1172,12 @@ body.landing-no-scroll #app.container {
 
 [data-theme="light"] .landing-bottom-banner {
   background: linear-gradient(90deg, rgba(238, 242, 255, 0.95) 0%, rgba(224, 231, 255, 0.95) 50%, rgba(240, 249, 255, 0.95) 100%) !important;
-  border: 1.5px solid rgba(99, 102, 241, 0.35) !important;
-  box-shadow: 0 10px 28px rgba(79, 70, 229, 0.12) !important;
+  border-top: 1.5px solid rgba(99, 102, 241, 0.35) !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-radius: 0 !important;
+  box-shadow: 0 -6px 24px rgba(79, 70, 229, 0.1) !important;
 }
 
 [data-theme="light"] .landing-banner-title {

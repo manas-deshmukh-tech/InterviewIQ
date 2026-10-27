@@ -37,9 +37,9 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
         </p>
 
         <!-- Toggle Tabs -->
-        <div style="display: flex; background: rgba(0,0,0,0.3); padding: 0.2rem; border-radius: var(--radius-sm); margin-top: 0.85rem; border: 1px solid var(--border-subtle);">
-          <button id="tab-login" style="flex: 1; padding: 0.38rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; background: ${currentTab === 'login' ? 'var(--primary)' : 'transparent'}; color: ${currentTab === 'login' ? '#fff' : 'var(--text-secondary)'};">Sign In</button>
-          <button id="tab-signup" style="flex: 1; padding: 0.38rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; background: ${currentTab === 'signup' ? 'var(--primary)' : 'transparent'}; color: ${currentTab === 'signup' ? '#fff' : 'var(--text-secondary)'};">Register</button>
+        <div class="auth-toggle-tabs" style="display: flex; padding: 0.25rem; border-radius: var(--radius-sm); margin-top: 0.85rem; border: 1px solid var(--border-subtle);">
+          <button type="button" id="tab-login" class="auth-toggle-btn ${currentTab === 'login' ? 'active' : ''}" style="flex: 1; padding: 0.45rem; border: none; border-radius: 6px; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s;">Sign In</button>
+          <button type="button" id="tab-signup" class="auth-toggle-btn ${currentTab === 'signup' ? 'active' : ''}" style="flex: 1; padding: 0.45rem; border: none; border-radius: 6px; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s;">Register</button>
         </div>
       </div>
 
@@ -54,16 +54,16 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
 
           <div class="input-group" style="margin-bottom: 0;">
             <label class="input-label" style="font-size: 0.8rem;">Role-Based Access Level</label>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-top: 0.15rem;">
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.5rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; margin-top: 0.2rem;">
+              <label class="role-selector active" style="cursor: pointer; padding: 0.55rem 0.65rem; border-radius: var(--radius-sm); text-align: center;">
                 <input type="radio" name="auth-role" value="Candidate" checked style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.85rem; color: var(--secondary);">Candidate</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1px;">Takes Interviews</div>
+                <div class="role-selector-title" style="color: var(--secondary);">Candidate</div>
+                <div class="role-selector-desc">Takes Interviews</div>
               </label>
-              <label class="role-selector" style="cursor: pointer; border: 1px solid var(--border-subtle); padding: 0.45rem 0.5rem; border-radius: var(--radius-sm); text-align: center; background: rgba(15,23,42,0.5);">
+              <label class="role-selector" style="cursor: pointer; padding: 0.55rem 0.65rem; border-radius: var(--radius-sm); text-align: center;">
                 <input type="radio" name="auth-role" value="Mentor" style="display: none;" />
-                <div style="font-weight: 700; font-size: 0.85rem; color: var(--accent-purple);">Mentor</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1px;">Reviews Rubrics</div>
+                <div class="role-selector-title" style="color: var(--accent-purple);">Mentor</div>
+                <div class="role-selector-desc">Reviews Rubrics</div>
               </label>
             </div>
           </div>
@@ -147,17 +147,18 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
     root.querySelectorAll('.role-selector').forEach(el => {
       const radio = el.querySelector('input[type="radio"]');
       if (radio.checked) {
-        el.style.borderColor = 'var(--primary)';
-        el.style.background = 'rgba(99,102,241,0.15)';
+        el.classList.add('active');
       }
       el.addEventListener('click', () => {
         root.querySelectorAll('.role-selector').forEach(r => {
-          r.style.borderColor = 'var(--border-subtle)';
-          r.style.background = 'rgba(15,23,42,0.5)';
+          r.classList.remove('active');
+          r.style.borderColor = '';
+          r.style.background = '';
         });
         radio.checked = true;
-        el.style.borderColor = 'var(--primary)';
-        el.style.background = 'rgba(99,102,241,0.15)';
+        el.classList.add('active');
+        el.style.borderColor = '';
+        el.style.background = '';
       });
     });
 
