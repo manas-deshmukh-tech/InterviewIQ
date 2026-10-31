@@ -6,6 +6,7 @@ import { renderActiveInterview } from './modules/activeInterview.js';
 import { renderFeedbackReport } from './modules/feedbackReport.js';
 import { renderCandidateDashboard } from './modules/candidateDashboard.js';
 import { renderMentorDashboard, renderAdminDashboard } from './modules/roleDashboards.js';
+import { renderDemoInterview } from './modules/demoInterview.js';
 import { interviewStore } from './modules/auth.js';
 
 // Application State: If no user is logged in, show the landing first page
@@ -20,7 +21,7 @@ if (initialUser && initialUser.name === 'Alex Rivera') {
 
 const state = {
   currentUser: initialUser,
-  currentView: initialUser ? 'dashboard' : 'landing', // 'landing' | 'dashboard' | 'setup' | 'active_interview' | 'feedback_report'
+  currentView: initialUser ? 'dashboard' : 'landing', // 'landing' | 'demo' | 'dashboard' | 'setup' | 'active_interview' | 'feedback_report'
   activeSetupConfig: null,
   activeReport: null
 };
@@ -149,7 +150,7 @@ function updateHeader() {
 export function renderApp() {
   updateHeader();
 
-  const isLanding = !state.currentUser || state.currentView === 'landing';
+  const isLanding = (!state.currentUser && state.currentView !== 'demo') || state.currentView === 'landing';
   if (isLanding) {
     document.body.classList.add('landing-no-scroll');
     document.documentElement.classList.add('landing-no-scroll');
@@ -454,19 +455,7 @@ export function renderApp() {
 
     // Hook up action buttons
     const triggerDemo = () => {
-      let demoUser = authState.getUsers().find(u => u.role === 'Candidate') || {
-        id: 'usr_guest_demo',
-        name: 'Demo Candidate',
-        email: 'demo@interviewiq.io',
-        role: 'Candidate',
-        verified: true,
-        targetRole: 'Full Stack Engineer',
-        level: 'Mid Level',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-      };
-      authState.setCurrentUser(demoUser);
-      state.currentUser = demoUser;
-      state.currentView = 'setup';
+      state.currentView = 'demo';
       renderApp();
     };
 
@@ -484,6 +473,29 @@ export function renderApp() {
     const accountBtn = appContainer.querySelector('#landing-account-btn');
     if (accountBtn) accountBtn.addEventListener('click', triggerSignUp);
 
+    return;
+  }
+
+  // Handle demo interview (no login required)
+  if (state.currentView === 'demo') {
+    document.body.classList.remove('landing-no-scroll');
+    document.documentElement.classList.remove('landing-no-scroll');
+    renderDemoInterview(
+      appContainer,
+      // onSignUp: open the signup modal
+      () => {
+        renderAuthModal('signup', (u) => {
+          state.currentUser = u;
+          state.currentView = 'dashboard';
+          renderApp();
+        });
+      },
+      // onGoHome: return to landing
+      () => {
+        state.currentView = 'landing';
+        renderApp();
+      }
+    );
     return;
   }
 
