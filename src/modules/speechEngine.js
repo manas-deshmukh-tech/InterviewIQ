@@ -36,7 +36,7 @@ export class SpeechEngine {
     }
   }
 
-  speak(text, personaType = 'strict', onEndCallback = null) {
+  speak(text, personaType = 'strict', onEndCallback = null, onBoundaryCallback = null, onStartCallback = null) {
     if (!this.synth) return;
     this.synth.cancel(); // cancel previous utterance
 
@@ -44,22 +44,41 @@ export class SpeechEngine {
     const voices = this.synth.getVoices();
 
     // Voice tuning based on persona
-    if (personaType === 'strict') {
-      utterance.pitch = 0.9;
-      utterance.rate = 1.05;
-      const deepVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Guy')));
-      if (deepVoice) utterance.voice = deepVoice;
+    if (personaType === 'executive' || personaType === 'strict') {
+      utterance.pitch = 0.94;
+      utterance.rate = 1.02;
+      const maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Rishi') || v.name.includes('Alex') || v.name.includes('Male') || v.name.includes('David') || v.name.includes('Daniel') || v.name.includes('Guy') || v.name.includes('George')));
+      if (maleVoice) utterance.voice = maleVoice;
     } else if (personaType === 'collaborative') {
       utterance.pitch = 1.05;
       utterance.rate = 1.0;
-      const friendlyVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Google US English')));
+      const friendlyVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Google US English') || v.name.includes('Victoria') || v.name.includes('Karen')));
       if (friendlyVoice) utterance.voice = friendlyVoice;
     } else {
       utterance.pitch = 1.0;
       utterance.rate = 1.0;
     }
 
+    utterance.onstart = () => {
+      if (onStartCallback) onStartCallback();
+    };
+
+    utterance.onboundary = (event) => {
+      if (onBoundaryCallback) {
+        // Extract word from text based on charIndex
+        const charIdx = event.charIndex || 0;
+        const remaining = text.slice(charIdx);
+        const match = remaining.match(/^(\w+)/);
+        const word = match ? match[1] : '';
+        onBoundaryCallback({ charIndex: charIdx, word, text });
+      }
+    };
+
     utterance.onend = () => {
+      if (onEndCallback) onEndCallback();
+    };
+
+    utterance.onerror = () => {
       if (onEndCallback) onEndCallback();
     };
 
