@@ -11,8 +11,38 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
   let currentTab = defaultTab; // 'info' | 'edit' | 'manage'
   let selectedAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
   let emailVerificationPending = false;
-  let simulatedOtp = '';
   let pendingNewEmail = '';
+  let isSendingEmail = false;
+  let isVerifyingEmail = false;
+  let resendCooldown = 0;
+  let cooldownInterval = null;
+
+  function cleanupCooldown() {
+    if (cooldownInterval) {
+      clearInterval(cooldownInterval);
+      cooldownInterval = null;
+    }
+  }
+
+  function startCooldown(seconds = 60) {
+    cleanupCooldown();
+    resendCooldown = seconds;
+    cooldownInterval = setInterval(() => {
+      resendCooldown -= 1;
+      const resendBtn = root.querySelector('#btn-resend-email-otp');
+      if (resendCooldown <= 0) {
+        cleanupCooldown();
+        resendCooldown = 0;
+        if (resendBtn) {
+          resendBtn.disabled = false;
+          resendBtn.textContent = 'Resend Code';
+        }
+      } else if (resendBtn) {
+        resendBtn.disabled = true;
+        resendBtn.textContent = `Resend in ${resendCooldown}s`;
+      }
+    }, 1000);
+  }
 
   function render() {
     root.innerHTML = `
@@ -55,16 +85,17 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
   }
 
   function renderTabContent() {
+    const displayName = currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Candidate');
     if (currentTab === 'info') {
       return `
         <div class="fade-in">
           <!-- User Summary Header -->
           <div style="display: flex; align-items: center; gap: 1.25rem; padding: 1.2rem; background: rgba(15,23,42,0.5); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-            <img src="${currentUser.avatar || selectedAvatar}" alt="${currentUser.name}" class="profile-avatar-preview" style="width: 72px; height: 72px;" />
+            <img src="${currentUser.avatar || selectedAvatar}" alt="${displayName}" class="profile-avatar-preview" style="width: 72px; height: 72px;" />
             <div style="flex: 1;">
               <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff;">${currentUser.name}</h3>
-                <span class="role-pill ${currentUser.role}">${currentUser.role}</span>
+                <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff;">${displayName}</h3>
+                <span class="role-pill ${currentUser.role || 'Candidate'}">${currentUser.role || 'Candidate'}</span>
               </div>
               <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.2rem;">${currentUser.email}</div>
               <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
@@ -77,7 +108,7 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
           <div class="profile-info-grid">
             <div class="profile-info-item">
               <div class="label">Full Name</div>
-              <div class="value">${currentUser.name}</div>
+              <div class="value">${displayName}</div>
             </div>
             <div class="profile-info-item">
               <div class="label">Email Address</div>
@@ -192,29 +223,37 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
             ${!emailVerificationPending ? `
               <form id="form-request-email">
                 <div class="input-group" style="margin-bottom: 0.75rem;">
-                  <label class="input-label">New Email Address</label>
-                  <input type="email" id="input-new-email" class="input-text" placeholder="new.email@university.edu" required />
+                  <label class="input-label" for="input-new-email">New Email Address</label>
+                  <input type="email" id="input-new-email" class="input-text" placeholder="new.email@university.edu" required ${isSendingEmail ? 'disabled' : ''} />
                 </div>
-                <button type="submit" class="btn btn-secondary btn-sm">
-                  Send Verification Code
+                <button type="submit" id="btn-request-email-submit" class="btn btn-secondary btn-sm" ${isSendingEmail ? 'disabled' : ''}>
+                  ${isSendingEmail ? 'Sending Verification Code...' : 'Send Verification Code'}
                 </button>
               </form>
             ` : `
-              <div style="background: rgba(6,182,212,0.08); border: 1px dashed var(--secondary); border-radius: var(--radius-sm); padding: 0.8rem; margin-bottom: 1rem; text-align: center;">
-                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Simulated Verification Dispatch Token for ${pendingNewEmail}</span>
-                <div style="font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; letter-spacing: 0.25em; color: var(--secondary); margin-top: 0.2rem;">
-                  ${simulatedOtp}
+              <div style="background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.25); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1rem;">
+                <div style="font-size: 0.82rem; color: #fff; font-weight: 600; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                  Verification Code Dispatched
                 </div>
+                <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0; line-height: 1.4;">
+                  A genuine 6-digit verification code has been dispatched via Gmail to <strong style="color: var(--secondary);">${pendingNewEmail}</strong>. Code expires in 10 minutes.
+                </p>
               </div>
 
               <form id="form-verify-email">
                 <div class="input-group" style="margin-bottom: 0.75rem;">
-                  <label class="input-label">Enter 6-Digit Code</label>
-                  <input type="text" id="input-email-otp" class="input-text" maxlength="6" placeholder="••••••" style="font-family: var(--font-mono); letter-spacing: 0.25em; text-align: center;" required />
+                  <label class="input-label" for="input-email-otp">Enter 6-Digit Code</label>
+                  <input type="text" id="input-email-otp" class="input-text" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" placeholder="••••••" style="font-family: var(--font-mono); letter-spacing: 0.25em; text-align: center;" required ${isVerifyingEmail ? 'disabled' : ''} />
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
-                  <button type="submit" class="btn btn-primary btn-sm">Verify & Update Email</button>
-                  <button type="button" id="btn-cancel-email-change" class="btn btn-secondary btn-sm">Cancel</button>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <button type="submit" id="btn-verify-email-submit" class="btn btn-primary btn-sm" ${isVerifyingEmail ? 'disabled' : ''}>
+                    ${isVerifyingEmail ? 'Verifying...' : 'Verify & Update Email'}
+                  </button>
+                  <button type="button" id="btn-resend-email-otp" class="btn btn-secondary btn-sm" ${resendCooldown > 0 || isSendingEmail ? 'disabled' : ''}>
+                    ${resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}
+                  </button>
+                  <button type="button" id="btn-cancel-email-change" class="btn btn-secondary btn-sm" ${isVerifyingEmail ? 'disabled' : ''}>Cancel</button>
                 </div>
               </form>
             `}
@@ -249,7 +288,10 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
 
   function bindTabEvents() {
     const closeBtn = root.querySelector('#close-profile-modal');
-    const close = () => root.remove();
+    const close = () => {
+      cleanupCooldown();
+      root.remove();
+    };
     if (closeBtn) closeBtn.addEventListener('click', close);
     root.addEventListener('click', (e) => {
       if (e.target === root) close();
@@ -368,43 +410,84 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
 
       const reqEmailForm = root.querySelector('#form-request-email');
       if (reqEmailForm) {
-        reqEmailForm.addEventListener('submit', (e) => {
+        reqEmailForm.addEventListener('submit', async (e) => {
           e.preventDefault();
-          const newEmail = root.querySelector('#input-new-email').value.trim();
+          const emailInput = root.querySelector('#input-new-email');
+          const newEmail = emailInput ? emailInput.value.trim() : '';
           if (!newEmail || newEmail.toLowerCase() === currentUser.email.toLowerCase()) {
-            showAlert('Please enter a different email address.');
+            showAlert('Please enter a different email address from your current one.');
             return;
           }
 
+          isSendingEmail = true;
+          render();
+
           try {
-            const res = authState.requestEmailChange(currentUser.id, newEmail);
+            await authState.requestEmailChange(currentUser.id, newEmail);
             pendingNewEmail = newEmail;
-            simulatedOtp = res.otp;
             emailVerificationPending = true;
+            isSendingEmail = false;
+            startCooldown(60);
             render();
-            showAlert(`Verification code dispatched to ${newEmail}`, 'success');
+            showAlert(`Verification code dispatched to ${newEmail}. Please check your inbox.`, 'success');
           } catch (err) {
-            showAlert(err.message || 'Failed to request email change.');
+            isSendingEmail = false;
+            render();
+            showAlert(err.message || 'Failed to dispatch verification code.');
+          }
+        });
+      }
+
+      const resendEmailBtn = root.querySelector('#btn-resend-email-otp');
+      if (resendEmailBtn) {
+        resendEmailBtn.addEventListener('click', async () => {
+          if (resendCooldown > 0 || isSendingEmail) return;
+          isSendingEmail = true;
+          render();
+          try {
+            await authState.requestEmailChange(currentUser.id, pendingNewEmail);
+            isSendingEmail = false;
+            startCooldown(60);
+            render();
+            showAlert(`A fresh verification code has been dispatched to ${pendingNewEmail}.`, 'success');
+          } catch (err) {
+            isSendingEmail = false;
+            render();
+            showAlert(err.message || 'Failed to resend verification code.');
           }
         });
       }
 
       const verifyEmailForm = root.querySelector('#form-verify-email');
       if (verifyEmailForm) {
-        verifyEmailForm.addEventListener('submit', (e) => {
+        verifyEmailForm.addEventListener('submit', async (e) => {
           e.preventDefault();
-          const otp = root.querySelector('#input-email-otp').value.trim();
+          const otpInput = root.querySelector('#input-email-otp');
+          const otp = otpInput ? otpInput.value.trim() : '';
+          if (!otp || otp.length !== 6) {
+            showAlert('Please enter the full 6-digit verification code.');
+            return;
+          }
+
+          isVerifyingEmail = true;
+          render();
+
           try {
-            const updated = authState.verifyNewEmail(currentUser.id, otp);
+            const updated = await authState.verifyNewEmail(currentUser.id, otp);
             currentUser = updated;
             emailVerificationPending = false;
+            isVerifyingEmail = false;
+            cleanupCooldown();
+            resendCooldown = 0;
             if (typeof onProfileUpdated === 'function') {
               onProfileUpdated(updated);
             }
             render();
-            showAlert('Email address successfully verified and updated!', 'success');
+            showAlert(`Email address successfully updated to ${updated.email}!`, 'success');
           } catch (err) {
-            showAlert(err.message || 'Failed to verify email.');
+            isVerifyingEmail = false;
+            render();
+            showAlert(err.message || 'Failed to verify email address.');
           }
         });
 
@@ -412,6 +495,10 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
         if (cancelEmailBtn) {
           cancelEmailBtn.addEventListener('click', () => {
             emailVerificationPending = false;
+            isSendingEmail = false;
+            isVerifyingEmail = false;
+            cleanupCooldown();
+            resendCooldown = 0;
             render();
           });
         }

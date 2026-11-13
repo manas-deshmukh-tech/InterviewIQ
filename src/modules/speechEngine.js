@@ -1,9 +1,23 @@
 // Speech Synthesis (Interviewer voice), Speech Recognition (Candidate voice),
 // Audio recording, and Delivery telemetry (Response delay, Pace WPM, Filler words, Pauses)
+import { getInterviewer } from '../data/questionBank.js';
 
 export class SpeechEngine {
   constructor() {
-    this.synth = window.speechSynthesis;
+    this.synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+    this.cachedVoices = [];
+    if (this.synth) {
+      this.cachedVoices = this.synth.getVoices();
+      if (typeof this.synth.addEventListener === 'function') {
+        this.synth.addEventListener('voiceschanged', () => {
+          this.cachedVoices = this.synth.getVoices();
+        });
+      } else {
+        this.synth.onvoiceschanged = () => {
+          this.cachedVoices = this.synth.getVoices();
+        };
+      }
+    }
     this.recognition = null;
     this.mediaRecorder = null;
     this.audioChunks = [];
@@ -25,38 +39,93 @@ export class SpeechEngine {
   }
 
   initRecognition() {
+    if (typeof window === 'undefined') return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
-      this.recognition = new SpeechRecognition();
-      this.recognition.continuous = true;
-      this.recognition.interimResults = true;
-      this.recognition.lang = 'en-US';
+      try {
+        this.recognition = new SpeechRecognition();
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.lang = 'en-US';
+      } catch (err) {
+        console.warn('Error initializing SpeechRecognition:', err);
+      }
     } else {
       console.warn('SpeechRecognition API not natively available in this browser.');
     }
   }
 
-  speak(text, personaType = 'strict', onEndCallback = null, onBoundaryCallback = null, onStartCallback = null) {
+  findMatchingVoice(gender = 'male', interviewerId = 'vikram') {
+    if (!this.synth) return null;
+    const voices = (this.cachedVoices && this.cachedVoices.length > 0) 
+      ? this.cachedVoices 
+      : this.synth.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+    const pool = enVoices.length > 0 ? enVoices : voices;
+
+    const femaleDisqualifiers = ['female', 'woman', 'girl', 'samantha', 'victoria', 'karen', 'zira', 'hazel', 'susan', 'linda', 'heather', 'catherine', 'fiona', 'moira', 'tessa', 'stephanie', 'alice', 'helena', 'sarah', 'ava', 'zoe', 'sonia', 'jenny'];
+    const maleDisqualifiers = ['male', 'guy', 'david', 'daniel', 'alex', 'fred', 'oliver', 'george', 'james', 'christopher', 'ryan', 'mark', 'rishi', 'tom', 'lee', 'richard'];
+
+    if (gender === 'male') {
+      const maleCandidates = pool.filter(v => {
+        const n = v.name.toLowerCase();
+        return !femaleDisqualifiers.some(d => n.includes(d));
+      });
+
+      const priority = interviewerId === 'vikram'
+        ? ['daniel', 'google uk english male', 'alex', 'oliver', 'david', 'guy', 'george', 'ryan', 'male']
+        : ['alex', 'google us english male', 'fred', 'christopher', 'davis', 'rishi', 'male', 'daniel'];
+
+      for (const token of priority) {
+        const found = maleCandidates.find(v => v.name.toLowerCase().includes(token));
+        if (found) return found;
+      }
+      if (maleCandidates.length > 0) return maleCandidates[0];
+    } else {
+      const femaleCandidates = pool.filter(v => {
+        const n = v.name.toLowerCase();
+        return !maleDisqualifiers.some(d => n.includes(d));
+      });
+
+      const priority = interviewerId === 'priya'
+        ? ['google uk english female', 'google us english', 'samantha', 'victoria', 'karen', 'sonia', 'jenny', 'female']
+        : interviewerId === 'ananya'
+        ? ['fiona', 'moira', 'google uk english female', 'samantha', 'libby', 'maisie', 'victoria', 'female']
+        : ['victoria', 'karen', 'google uk english female', 'steffan', 'samantha', 'tessa', 'female'];
+
+      for (const token of priority) {
+        const found = femaleCandidates.find(v => v.name.toLowerCase().includes(token));
+        if (found) return found;
+      }
+      if (femaleCandidates.length > 0) return femaleCandidates[0];
+    }
+
+    return null;
+  }
+
+  speak(text, personaType = 'vikram', onEndCallback = null, onBoundaryCallback = null, onStartCallback = null) {
     if (!this.synth) return;
     this.synth.cancel(); // cancel previous utterance
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    const voices = this.synth.getVoices();
+    const interviewer = getInterviewer(personaType);
+    const gender = interviewer?.gender || 'male';
+    const config = interviewer?.voiceConfig || {};
 
-    // Voice tuning based on persona
-    if (personaType === 'executive' || personaType === 'strict') {
-      utterance.pitch = 0.94;
-      utterance.rate = 1.02;
-      const maleVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Rishi') || v.name.includes('Alex') || v.name.includes('Male') || v.name.includes('David') || v.name.includes('Daniel') || v.name.includes('Guy') || v.name.includes('George')));
-      if (maleVoice) utterance.voice = maleVoice;
-    } else if (personaType === 'collaborative') {
-      utterance.pitch = 1.05;
-      utterance.rate = 1.0;
-      const friendlyVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Google US English') || v.name.includes('Victoria') || v.name.includes('Karen')));
-      if (friendlyVoice) utterance.voice = friendlyVoice;
+    const utterance = new SpeechSynthesisUtterance(text);
+    const matchedVoice = this.findMatchingVoice(gender, interviewer?.id);
+    if (matchedVoice) {
+      utterance.voice = matchedVoice;
+    }
+
+    // Set gender-calibrated pitch and rate
+    if (gender === 'male') {
+      utterance.pitch = config.pitch || (interviewer?.id === 'vikram' ? 0.90 : 1.02);
+      utterance.rate = config.rate || (interviewer?.id === 'vikram' ? 0.98 : 1.04);
     } else {
-      utterance.pitch = 1.0;
-      utterance.rate = 1.0;
+      utterance.pitch = config.pitch || (interviewer?.id === 'priya' ? 1.12 : interviewer?.id === 'kavita' ? 0.98 : 1.06);
+      utterance.rate = config.rate || (interviewer?.id === 'ananya' ? 0.96 : 1.02);
     }
 
     utterance.onstart = () => {
@@ -65,7 +134,6 @@ export class SpeechEngine {
 
     utterance.onboundary = (event) => {
       if (onBoundaryCallback) {
-        // Extract word from text based on charIndex
         const charIdx = event.charIndex || 0;
         const remaining = text.slice(charIdx);
         const match = remaining.match(/^(\w+)/);
@@ -83,6 +151,12 @@ export class SpeechEngine {
     };
 
     this.synth.speak(utterance);
+  }
+
+  testVoice(interviewerId = 'vikram', sampleText = null, onEnd = null) {
+    const interviewer = getInterviewer(interviewerId);
+    const text = sampleText || interviewer?.voiceConfig?.sampleText || `Hello! I am ${interviewer?.name || 'your interviewer'}, ready to evaluate your responses.`;
+    this.speak(text, interviewerId, onEnd);
   }
 
   stopSpeaking() {
@@ -229,6 +303,21 @@ export class SpeechEngine {
     });
   }
 
+  reset() {
+    this.isListening = false;
+    this.recognizedTranscript = '';
+    this.fillerWordsLog = [];
+    this.pauseEvents = 0;
+    this.audioChunks = [];
+    this.recordedAudioBlob = null;
+    this.recordedAudioUrl = null;
+    this.firstWordTime = 0;
+    this.answerStartTime = 0;
+    if (this.recognition) {
+      try { this.recognition.stop(); } catch (e) {}
+    }
+  }
+
   async stopCandidateRecording() {
     this.isListening = false;
     this.answerEndTime = Date.now();
@@ -242,28 +331,39 @@ export class SpeechEngine {
     }
 
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {}
     }
 
-    // Compute delivery telemetry
+    // Capture telemetry from current question before resetting
+    const currentTranscript = (this.recognizedTranscript || '').trim();
     const durationSec = Math.max(1, ((this.answerEndTime - (this.firstWordTime || this.questionStartTime)) / 1000));
     const responseDelaySec = this.firstWordTime ? ((this.firstWordTime - this.questionStartTime) / 1000) : 2.5;
 
     // Word count & pace
-    const words = this.recognizedTranscript.trim().split(/\s+/).filter(Boolean);
+    const words = currentTranscript.split(/\s+/).filter(Boolean);
     const wordCount = words.length;
     const avgPaceWpm = Math.round((wordCount / (durationSec / 60))) || 0;
+    const fillerWords = [...this.fillerWordsLog];
+    const audioUrl = this.recordedAudioUrl;
+
+    // CRITICAL RESET: Wipe transcript buffer immediately so previous answers NEVER leak to the next question
+    this.recognizedTranscript = '';
+    this.fillerWordsLog = [];
+    this.audioChunks = [];
+    this.firstWordTime = 0;
 
     return {
-      transcript: this.recognizedTranscript.trim(),
+      transcript: currentTranscript,
       wordCount,
       durationSec: Math.round(durationSec),
       responseDelaySec: parseFloat(responseDelaySec.toFixed(1)),
       avgPaceWpm,
-      fillerWordsCount: this.fillerWordsLog.length,
-      fillerWordsList: Array.from(new Set(this.fillerWordsLog)),
+      fillerWordsCount: fillerWords.length,
+      fillerWordsList: Array.from(new Set(fillerWords)),
       pausesCount: this.pauseEvents,
-      audioUrl: this.recordedAudioUrl
+      audioUrl
     };
   }
 }

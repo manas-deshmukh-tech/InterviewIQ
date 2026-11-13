@@ -99,20 +99,22 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
 
   function renderOtpStep() {
     return `
-      <div style="text-align: center; margin-bottom: 1.5rem;">
+      <div style="text-align: center; margin-bottom: 1.25rem;">
         <div style="display: inline-flex; width: 44px; height: 44px; background: rgba(6,182,212,0.15); border: 1px solid var(--secondary); border-radius: 12px; align-items: center; justify-content: center; margin-bottom: 0.75rem; color: var(--secondary);">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
         </div>
         <h2 style="font-size: 1.5rem; font-weight: 700; color: #fff;">Verify Your Email</h2>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.3rem;">
-          A 6-digit confirmation token was dispatched to <strong style="color: #fff;">${pendingEmail}</strong>
+          A single-use verification code was dispatched to <strong style="color: #fff;">${pendingEmail}</strong>
         </p>
       </div>
 
-      <div style="background: rgba(6,182,212,0.08); border: 1px dashed var(--secondary); border-radius: var(--radius-sm); padding: 0.9rem; margin-bottom: 1.5rem; text-align: center;">
-        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Simulated Verification Dispatch Token</span>
-        <div style="font-family: var(--font-mono); font-size: 1.6rem; font-weight: 700; letter-spacing: 0.25em; color: var(--secondary); margin-top: 0.2rem;">
-          ${simulatedOtp}
+      <div style="background: rgba(14,165,233,0.08); border: 1px solid rgba(14,165,233,0.25); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; text-align: left;">
+        <div style="display: flex; align-items: flex-start; gap: 0.65rem;">
+          <span style="font-size: 1.25rem; line-height: 1;">📬</span>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45;">
+            Please check your email inbox and enter the 6-digit code below. Code expires in <strong>10 minutes</strong>.
+          </div>
         </div>
       </div>
 
@@ -124,9 +126,16 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
           <input type="text" id="otp-input" class="input-text" maxlength="6" style="text-align: center; font-size: 1.5rem; font-family: var(--font-mono); letter-spacing: 0.3em;" placeholder="••••••" required />
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+        <button type="submit" id="btn-otp-submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
           Confirm & Access Platform
         </button>
+
+        <div style="text-align: center; margin-top: 1.1rem;">
+          <button type="button" id="btn-resend-otp" style="background: none; border: none; color: var(--secondary); font-size: 0.82rem; cursor: pointer; text-decoration: underline; padding: 4px;">
+            Didn't receive code? Resend Code
+          </button>
+          <div id="resend-status" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: none;"></div>
+        </div>
       </form>
     `;
   }
@@ -212,16 +221,59 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
       });
     }
 
-    // Handle OTP Submit
+    // Handle Resend OTP Code
+    const resendBtn = root.querySelector('#btn-resend-otp');
+    if (resendBtn) {
+      resendBtn.addEventListener('click', async () => {
+        const resendStatus = root.querySelector('#resend-status');
+        const alertBox = root.querySelector('#otp-alert');
+        if (alertBox) alertBox.style.display = 'none';
+        resendBtn.disabled = true;
+        if (resendStatus) {
+          resendStatus.style.display = 'block';
+          resendStatus.style.color = 'var(--text-muted)';
+          resendStatus.textContent = 'Dispatching fresh verification code...';
+        }
+
+        try {
+          const res = await authState.resendOtp(pendingEmail);
+          if (resendStatus) {
+            resendStatus.style.color = '#34d399';
+            resendStatus.textContent = res.message || 'Verification code resent. Check your inbox.';
+          }
+          let seconds = 60;
+          const timer = setInterval(() => {
+            seconds--;
+            if (seconds <= 0) {
+              clearInterval(timer);
+              resendBtn.disabled = false;
+              resendBtn.textContent = "Didn't receive code? Resend Code";
+              if (resendStatus) resendStatus.style.display = 'none';
+            } else {
+              resendBtn.textContent = `Resend Code (${seconds}s)`;
+            }
+          }, 1000);
+        } catch (err) {
+          resendBtn.disabled = false;
+          if (resendStatus) resendStatus.style.display = 'none';
+          if (alertBox) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = 'rgba(244,63,94,0.15)';
+            alertBox.style.color = '#fda4af';
+            alertBox.textContent = err.message;
+          }
+        }
+      });
+    }
     const otpForm = root.querySelector('#otp-form');
     if (otpForm) {
-      otpForm.addEventListener('submit', (e) => {
+      otpForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const code = root.querySelector('#otp-input').value.trim();
         const alertBox = root.querySelector('#otp-alert');
 
         try {
-          const user = authState.verifyOtp(pendingEmail, code);
+          const user = await authState.verifyOtp(pendingEmail, code);
           root.remove();
           if (onAuthSuccess) onAuthSuccess(user);
         } catch (err) {

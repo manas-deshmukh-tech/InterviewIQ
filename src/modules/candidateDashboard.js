@@ -1,29 +1,34 @@
 import { interviewStore, authState } from './auth.js';
 
 export function renderCandidateDashboard(container, currentUser, onNewInterview, onViewReport) {
-  const interviews = interviewStore.getUserInterviews(currentUser.id);
-
-  // Group by category for progress tracking
-  const categoryStats = {};
-  ['Python', 'SQL', 'Aptitude', 'HR', 'Behavioral'].forEach(cat => {
-    const list = interviews.filter(i => i.category === cat);
-    if (list.length > 0) {
-      const avg = Math.round(list.reduce((acc, curr) => acc + curr.overallScore, 0) / list.length);
-      categoryStats[cat] = {
-        count: list.length,
-        avgScore: avg,
-        latestScore: list[0].overallScore
-      };
-    } else {
-      categoryStats[cat] = { count: 0, avgScore: null, latestScore: null };
-    }
-  });
-
-  const overallAvg = interviews.length > 0 
-    ? Math.round(interviews.reduce((acc, c) => acc + c.overallScore, 0) / interviews.length)
-    : 0;
-
   function render() {
+    const interviews = interviewStore.getUserInterviews(currentUser.id);
+
+    // Group by category for progress tracking
+    const categoryStats = {};
+    ['Python', 'SQL', 'Aptitude', 'HR', 'Behavioral'].forEach(cat => {
+      const list = interviews.filter(i => i.category === cat);
+      if (list.length > 0) {
+        const avg = Math.round(list.reduce((acc, curr) => acc + curr.overallScore, 0) / list.length);
+        categoryStats[cat] = {
+          count: list.length,
+          avgScore: avg,
+          latestScore: list[0].overallScore
+        };
+      } else {
+        categoryStats[cat] = { count: 0, avgScore: null, latestScore: null };
+      }
+    });
+
+    const overallAvg = interviews.length > 0 
+      ? Math.round(interviews.reduce((acc, c) => acc + c.overallScore, 0) / interviews.length)
+      : 0;
+
+    const validPaceInterviews = interviews.filter(i => typeof i.metrics?.avgPaceWpm === 'number' && i.metrics.avgPaceWpm > 0);
+    const avgWpm = validPaceInterviews.length > 0 
+      ? Math.round(validPaceInterviews.reduce((acc, curr) => acc + curr.metrics.avgPaceWpm, 0) / validPaceInterviews.length)
+      : null;
+
     container.innerHTML = `
       <div class="fade-in">
         
@@ -35,7 +40,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
               <span class="badge badge-emerald">Verified Account</span>
             </div>
             <h1 style="font-size: 2.2rem; font-weight: 800; color: #fff; letter-spacing: -0.02em;">
-              Welcome back, ${currentUser.name}
+              Welcome back, ${currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Candidate')}
             </h1>
             <p style="font-size: 0.95rem; color: var(--text-secondary); margin-top: 0.2rem;">
               Target Track: <strong style="color: #fff;">${currentUser.targetRole || 'Full Stack Engineer'}</strong> • Level: <strong style="color: #fff;">${currentUser.level || 'Mid Level'}</strong>
@@ -67,8 +72,12 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
 
           <div class="glass-card" style="padding: 1.4rem;">
             <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Avg Verbal Pace</div>
-            <div style="font-size: 2rem; font-weight: 800; color: #fff; margin-top: 0.35rem;">142 <span style="font-size: 1rem; font-weight: 500; color: var(--text-muted);">WPM</span></div>
-            <div style="font-size: 0.75rem; color: #34d399; margin-top: 0.2rem;">Optimal conversational range</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #fff; margin-top: 0.35rem;">
+              ${avgWpm !== null ? `${avgWpm} <span style="font-size: 1rem; font-weight: 500; color: var(--text-muted);">WPM</span>` : '<span style="font-size: 1.35rem; color: var(--text-muted);">Unavailable</span>'}
+            </div>
+            <div style="font-size: 0.75rem; color: ${avgWpm !== null ? '#34d399' : 'var(--text-muted)'}; margin-top: 0.2rem;">
+              ${avgWpm !== null ? 'Actual recorded speech pace' : 'No recorded speech data'}
+            </div>
           </div>
 
           <div class="glass-card" style="padding: 1.4rem;">
@@ -217,7 +226,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
         const id = btn.dataset.id;
         if (confirm('Permanently delete this interview session and its telemetry?')) {
           interviewStore.deleteInterview(id);
-          renderDashboard(container, currentUser, onNewInterview, onViewReport);
+          render();
         }
       });
     });
@@ -228,7 +237,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
       purgeBtn.addEventListener('click', () => {
         if (confirm('Delete all your interview records and exercise right to be forgotten?')) {
           interviews.forEach(i => interviewStore.deleteInterview(i.id));
-          renderDashboard(container, currentUser, onNewInterview, onViewReport);
+          render();
         }
       });
     }
@@ -242,4 +251,11 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
   }
 
   render();
+
+  // Background synchronize with MySQL database
+  interviewStore.syncWithBackend(currentUser.id).then(updated => {
+    if (updated) {
+      render();
+    }
+  }).catch(() => {});
 }

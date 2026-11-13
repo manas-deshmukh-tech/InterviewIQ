@@ -4,3 +4,27 @@ dist-ssr
 *.local
 .DS_Store
 .vscode
+backend/venv/
+**/__pycache__/
+*.pyc
+.env
+backend/.env
+backend/backups/
+*.db
+*.sqlite
+*.sqlite3
+backend/interviewiq.db
+backend/test_temp.db
+.pytest_cache/
+
+# Loose root scratch and generation images
+/Gemini_Generated_Image_*.png
+/InterviewIQ*.png
+/Neon AI Interview Interface.png
+/girl-interview.jpg
+/img1.jpg
+/imgl.jpg
+/interviewiq_transparent_symbols/
+
+
+
