@@ -21,6 +21,7 @@ from datetime import datetime
 import database as db
 import security as sec
 import ai_service
+import question_bank as qb
 from nlp_analyzer import NLPInterviewAnalyzer
 
 # Initialize SQLite database schema
@@ -115,6 +116,16 @@ class GenerateQuestionsRequest(BaseModel):
     count: int = 3
 
 
+class PrepareQuestionsRequest(BaseModel):
+    role: str = "Software Developer"
+    level: str = "Mid Level"
+    durationMinutes: int = 15
+    customRoleTitle: Optional[str] = ""
+    resumeSkills: Optional[List[str]] = Field(default_factory=list)
+    resumeProjects: Optional[List[str]] = Field(default_factory=list)
+    category: Optional[str] = None
+
+
 class BatchAnalyticsRequest(BaseModel):
     interviews: List[Dict[str, Any]]
 
@@ -141,7 +152,7 @@ def root():
 @app.get("/api/health")
 def health_check():
     db_meta = db.get_engine_metadata()
-    ai_meta = ai_service.get_openai_config()
+    ai_meta = ai_service.get_ai_config()
     return {
         "status": "healthy",
         "database": db_meta,
@@ -157,6 +168,7 @@ def health_check():
             "STAR Behavioral Framework Classification",
             "SQLAlchemy PyMySQL Connection Pooling",
             "Dual Dialect Database Support (MySQL / SQLite)",
+            "Local Ollama qwen2.5:1.5b Neural Engine",
             "OpenAI API Integration Layer"
         ]
     }
@@ -167,22 +179,23 @@ def health_check():
 @app.get("/api/ai/status")
 def get_ai_service_status(current_user: Dict[str, Any] = Depends(sec.get_current_user)):
     """
-    Protected endpoint: Returns OpenAI configuration status and model name without exposing secrets.
+    Protected endpoint: Returns active AI service configuration status without exposing secrets.
     """
     return {
         "success": True,
-        "ai_service": ai_service.get_openai_config()
+        "ai_service": ai_service.get_ai_config()
     }
 
 
 @app.get("/api/ai/test-connection")
 def test_ai_connection(current_user: Dict[str, Any] = Depends(sec.get_current_user)):
     """
-    Protected endpoint: Sends a minimal ping to verify OpenAI connection and credentials.
+    Protected endpoint: Sends a minimal ping to verify active AI service connectivity.
+    Pings local Ollama by default, or OpenAI if configured.
     Catches and maps all API exceptions to sanitized user-safe errors.
     """
     try:
-        result = ai_service.ping_openai_connection()
+        result = ai_service.ping_ai_connection()
         return {
             "success": True,
             "result": result
@@ -823,17 +836,219 @@ def get_interviews(
     return {"success": True, "interviews": interviews}
 
 
+@app.post("/api/interviews/questions/prepare")
+def prepare_interview_questions(
+    req: PrepareQuestionsRequest,
+    current_user: Dict[str, Any] = Depends(sec.get_current_user)
+):
+    """
+    Intelligent Question Orchestrator:
+    - Scales question count dynamically by duration (5m: 3, 15m: 5, 30m: 9, 45m: 13).
+    - Filters out candidate's historical questions from database to eliminate repetition.
+    - Generates project-defense questions if resume skills/projects are supplied.
+    - Calibrates difficulty strictly against candidate's experience level.
+    """
+    user_id = current_user["id"]
+    history_ids = db.get_user_question_history_ids(user_id=user_id, role=req.role)
+
+    selected = qb.select_calibrated_questions(
+        role=req.role,
+        level=req.level,
+        duration_minutes=req.durationMinutes,
+        user_history_ids=history_ids,
+        custom_role_title=req.customRoleTitle or "",
+        resume_skills=req.resumeSkills or [],
+        resume_projects=req.resumeProjects or []
+    )
+
+    # Determine candidate's sequential attempt number for this role
+    past_attempts = db.get_candidate_attempts_for_role(user_id=user_id, role=req.role)
+    next_attempt_num = len(past_attempts) + 1
+
+    return {
+        "success": True,
+        "questions": selected,
+        "targetCount": len(selected),
+        "durationMinutes": req.durationMinutes,
+        "role": req.role,
+        "level": req.level,
+        "attemptNumber": next_attempt_num,
+        "attemptLabel": f"A{next_attempt_num}",
+        "deduplication": {
+            "historicalQuestionsExcluded": len(history_ids),
+            "selectedCount": len(selected)
+        }
+    }
+
+
 @app.post("/api/interviews")
 def create_interview_session(
     interview_data: Dict[str, Any],
     current_user: Dict[str, Any] = Depends(sec.get_current_user)
 ):
     """
-    Protected endpoint: Persists an interview session.
-    Strictly enforces that the session is attributed to the authenticated user.
+    Protected endpoint: Persists an interview session with:
+    1. Cross-session Question History persistence for deduplication.
+    2. Topic-Level Weakness Detection (<50% Priority, 50-69% Focus, 70-84% Proficient, 85-100% Advanced).
+    3. Actionable Personalized Learning Plan generation.
+    4. Chronological Attempt Progression (A1 -> Latest) with Scenarios A, B, C, D retry recommendations.
+    5. Atomic storage in interview_sessions and interview_attempts tables.
     """
-    saved = db.save_interview(interview_data, enforced_user_id=current_user["id"])
-    return {"success": True, "interview": saved}
+    user_id = current_user["id"]
+    inv_id = interview_data.get("id") or ("inv_" + str(int(datetime.utcnow().timestamp() * 1000)))
+    interview_data["id"] = inv_id
+
+    role = interview_data.get("role") or "Software Developer"
+    level = interview_data.get("level") or "Mid Level"
+    category = interview_data.get("category") or role
+    overall_score = int(interview_data.get("overallScore") or 75)
+
+    # 1. Record Question History for Deduplication
+    questions_list = interview_data.get("questions") or []
+    answers_list = interview_data.get("answers") or []
+
+    if not questions_list and answers_list:
+        questions_list = [
+            {
+                "id": a.get("questionId") or a.get("id"),
+                "question": a.get("question") or a.get("questionText"),
+                "topic": a.get("topic") or a.get("category"),
+                "category": category
+            }
+            for a in answers_list
+        ]
+
+    try:
+        db.record_question_history(
+            user_id=user_id,
+            interview_id=inv_id,
+            questions=questions_list,
+            role=role,
+            category=category
+        )
+    except Exception as exc:
+        print(f"[QUESTION HISTORY WARNING] Could not record question history: {exc}")
+
+    # 2. Topic-Level Weakness Detection
+    topic_eval = qb.evaluate_topic_breakdown(answers_list)
+    topic_scores = {
+        t_name: t_data["averageScore"]
+        for t_name, t_data in topic_eval["topics"].items()
+    }
+    weaknesses = topic_eval["weaknesses"]
+    strengths = topic_eval["strengths"]
+
+    # 3. Actionable Personalized Learning Plan
+    learning_plan = qb.generate_learning_plan(
+        role=role,
+        weaknesses=weaknesses,
+        level=level
+    )
+
+    # 4. Chronological Attempt Progression (A1 -> Latest)
+    past_attempts = db.get_candidate_attempts_for_role(user_id=user_id, role=role)
+    next_attempt_num = len(past_attempts) + 1
+
+    current_attempt_obj = {
+        "overallScore": overall_score,
+        "overall_score": overall_score,
+        "topicScores": topic_scores,
+        "weaknesses": weaknesses,
+        "date": interview_data.get("date") or datetime.utcnow().isoformat()
+    }
+
+    progression = qb.calculate_attempt_progression(
+        attempts_history=past_attempts,
+        current_attempt=current_attempt_obj
+    )
+
+    # 5. Persist Attempt Record in interview_attempts table
+    try:
+        saved_attempt = db.save_interview_attempt(
+            user_id=user_id,
+            role=role,
+            interview_id=inv_id,
+            overall_score=overall_score,
+            topic_scores=topic_scores,
+            weaknesses=weaknesses,
+            recommendations=progression
+        )
+    except Exception as exc:
+        print(f"[ATTEMPT PERSISTENCE WARNING] Could not persist attempt record: {exc}")
+        saved_attempt = {"attemptNumber": next_attempt_num, "attemptLabel": f"A{next_attempt_num}"}
+
+    # Enrich interview report with progression telemetry
+    interview_data["attempt_number"] = next_attempt_num
+    interview_data["attemptNumber"] = next_attempt_num
+    interview_data["attemptLabel"] = f"A{next_attempt_num}"
+    interview_data["topicBreakdown"] = topic_eval
+    interview_data["topicScores"] = topic_scores
+    interview_data["weaknesses"] = weaknesses
+    interview_data["strengths"] = strengths
+    interview_data["learningPlan"] = learning_plan
+    interview_data["attemptProgression"] = progression
+
+    saved = db.save_interview(interview_data, enforced_user_id=user_id)
+    return {
+        "success": True,
+        "interview": saved,
+        "attemptProgression": progression,
+        "learningPlan": learning_plan
+    }
+
+
+@app.get("/api/candidates/progress")
+def get_candidate_progress(
+    role: Optional[str] = Query(None),
+    current_user: Dict[str, Any] = Depends(sec.get_current_user)
+):
+    """
+    Protected endpoint: Provides full chronological attempt trajectory,
+    score deltas, recurring vs resolved weaknesses, and retry recommendations.
+    """
+    user_id = current_user["id"]
+    target_role = role or current_user.get("target_role") or "Software Developer"
+
+    attempts = db.get_candidate_attempts_for_role(user_id=user_id, role=target_role)
+    if not attempts:
+        return {
+            "success": True,
+            "hasAttempts": False,
+            "role": target_role,
+            "attempts": [],
+            "progression": None
+        }
+
+    latest = attempts[-1]
+    prior = attempts[:-1]
+
+    progression = qb.calculate_attempt_progression(
+        attempts_history=prior,
+        current_attempt=latest
+    )
+
+    return {
+        "success": True,
+        "hasAttempts": True,
+        "role": target_role,
+        "totalAttempts": len(attempts),
+        "attempts": attempts,
+        "latestAttempt": latest,
+        "progression": progression
+    }
+
+
+@app.get("/api/candidates/attempts/{role_name}")
+def get_role_attempts(
+    role_name: str,
+    current_user: Dict[str, Any] = Depends(sec.get_current_user)
+):
+    """
+    Protected endpoint: Returns all chronological attempts for a specific role.
+    """
+    user_id = current_user["id"]
+    attempts = db.get_candidate_attempts_for_role(user_id=user_id, role=role_name)
+    return {"success": True, "role": role_name, "attempts": attempts}
 
 
 @app.delete("/api/interviews/{interview_id}")

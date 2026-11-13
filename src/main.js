@@ -575,6 +575,10 @@ export function renderApp() {
         state.currentView = 'dashboard';
         state.activeNavTab = 'my_interviews';
         renderApp();
+      },
+      (retryConfig) => {
+        state.currentView = 'interview_setup';
+        renderApp();
       }
     );
   } else {

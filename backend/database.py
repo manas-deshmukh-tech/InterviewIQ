@@ -345,6 +345,59 @@ def init_db(use_test_db: bool = False):
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS interview_question_history (
+                id VARCHAR(64) NOT NULL,
+                user_id VARCHAR(64) NOT NULL,
+                interview_id VARCHAR(64) NOT NULL,
+                question_id VARCHAR(64) NOT NULL,
+                question_text TEXT NOT NULL,
+                role VARCHAR(100) NOT NULL,
+                topic VARCHAR(100) NOT NULL,
+                category VARCHAR(100) NOT NULL,
+                asked_at VARCHAR(35) NOT NULL,
+                PRIMARY KEY (id),
+                INDEX idx_qh_user_role (user_id, role),
+                INDEX idx_qh_question_id (question_id),
+                CONSTRAINT fk_qh_user FOREIGN KEY (user_id)
+                    REFERENCES users (id)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS interview_attempts (
+                id VARCHAR(64) NOT NULL,
+                user_id VARCHAR(64) NOT NULL,
+                role VARCHAR(100) NOT NULL,
+                attempt_number INT NOT NULL,
+                interview_id VARCHAR(64) NOT NULL,
+                overall_score SMALLINT NOT NULL,
+                topic_scores_json JSON NULL,
+                weaknesses_json JSON NULL,
+                recommendations_json JSON NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'completed',
+                created_at VARCHAR(35) NOT NULL,
+                PRIMARY KEY (id),
+                INDEX idx_attempts_user_role (user_id, role, attempt_number),
+                CONSTRAINT fk_attempts_user FOREIGN KEY (user_id)
+                    REFERENCES users (id)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # Idempotent column upgrades for interview_sessions
+        for col_name, col_type in [
+            ("attempt_number", "INT NOT NULL DEFAULT 1"),
+            ("parent_attempt_id", "VARCHAR(64) NULL")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE interview_sessions ADD COLUMN {col_name} {col_type};")
+            except Exception:
+                pass
+
     else:
         # SQLite DDL
         cursor.execute("""
@@ -414,6 +467,48 @@ def init_db(use_test_db: bool = False):
                 created_at TEXT
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS interview_question_history (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                interview_id TEXT NOT NULL,
+                question_id TEXT NOT NULL,
+                question_text TEXT NOT NULL,
+                role TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                category TEXT NOT NULL,
+                asked_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS interview_attempts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                attempt_number INTEGER NOT NULL,
+                interview_id TEXT NOT NULL,
+                overall_score INTEGER NOT NULL,
+                topic_scores_json TEXT,
+                weaknesses_json TEXT,
+                recommendations_json TEXT,
+                status TEXT DEFAULT 'completed',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Idempotent column upgrades for SQLite interview_sessions
+        for col_name, col_type in [
+            ("attempt_number", "INTEGER DEFAULT 1"),
+            ("parent_attempt_id", "TEXT")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE interview_sessions ADD COLUMN {col_name} {col_type};")
+            except Exception:
+                pass
 
     conn.commit()
 
@@ -695,6 +790,8 @@ def save_interview(data: Dict[str, Any], enforced_user_id: Optional[str] = None,
     overall_score = int(data.get("overallScore") or 75)
     mode = data.get("mode") or "Technical Practice"
     created_at = data.get("date") or datetime.utcnow().isoformat()
+    attempt_number = int(data.get("attempt_number") or data.get("attemptNumber") or 1)
+    parent_attempt_id = data.get("parent_attempt_id") or data.get("parentAttemptId")
 
     metrics_raw = data.get("metrics") or {}
     report_raw = data
@@ -704,8 +801,8 @@ def save_interview(data: Dict[str, Any], enforced_user_id: Optional[str] = None,
 
     if is_mysql:
         cursor.execute("""
-            INSERT INTO interview_sessions (id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO interview_sessions (id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at, attempt_number, parent_attempt_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 user_id = VALUES(user_id),
                 title = VALUES(title),
@@ -716,16 +813,18 @@ def save_interview(data: Dict[str, Any], enforced_user_id: Optional[str] = None,
                 mode = VALUES(mode),
                 metrics_json = VALUES(metrics_json),
                 report_json = VALUES(report_json),
-                created_at = VALUES(created_at)
+                created_at = VALUES(created_at),
+                attempt_number = VALUES(attempt_number),
+                parent_attempt_id = VALUES(parent_attempt_id)
         """, (
-            inv_id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at
+            inv_id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at, attempt_number, parent_attempt_id
         ))
     else:
         cursor.execute("""
-            INSERT OR REPLACE INTO interview_sessions (id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO interview_sessions (id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at, attempt_number, parent_attempt_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            inv_id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at
+            inv_id, user_id, title, category, role, level, overall_score, mode, metrics_json, report_json, created_at, attempt_number, parent_attempt_id
         ))
 
     conn.commit()
@@ -735,6 +834,8 @@ def save_interview(data: Dict[str, Any], enforced_user_id: Optional[str] = None,
     data["userId"] = user_id
     data["user_id"] = user_id
     data["date"] = created_at
+    data["attempt_number"] = attempt_number
+    data["attemptNumber"] = attempt_number
     return data
 
 
@@ -745,3 +846,193 @@ def delete_interview(interview_id: str, use_test_db: bool = False):
     cursor.execute("DELETE FROM interview_sessions WHERE id = ?", (interview_id,))
     conn.commit()
     conn.close()
+
+
+# ==================== Question History & Deduplication Layer ====================
+
+def record_question_history(
+    user_id: str,
+    interview_id: str,
+    questions: List[Dict[str, Any]],
+    role: str,
+    category: str = "",
+    use_test_db: bool = False
+):
+    """
+    Persists asked questions into interview_question_history for session deduplication.
+    """
+    if not questions:
+        return
+
+    conn = get_connection(use_test_db=use_test_db)
+    cursor = conn.cursor()
+    now_iso = datetime.utcnow().isoformat()
+
+    records = []
+    import uuid
+    for idx, q in enumerate(questions):
+        qid = q.get("id") or f"q_{idx}_{uuid.uuid4().hex[:8]}"
+        qtext = q.get("question") or ""
+        topic = q.get("topic") or category or "General"
+        cat = q.get("category") or category or role
+        entry_id = f"qh_{uuid.uuid4().hex[:16]}"
+        records.append((entry_id, user_id, interview_id, qid, qtext, role, topic, cat, now_iso))
+
+    if conn._is_mysql:
+        cursor.executemany("""
+            INSERT IGNORE INTO interview_question_history (id, user_id, interview_id, question_id, question_text, role, topic, category, asked_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, records)
+    else:
+        cursor.executemany("""
+            INSERT OR IGNORE INTO interview_question_history (id, user_id, interview_id, question_id, question_text, role, topic, category, asked_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, records)
+    conn.commit()
+    conn.close()
+
+
+def get_user_question_history_ids(
+    user_id: str,
+    role: Optional[str] = None,
+    limit: int = 150,
+    use_test_db: bool = False
+) -> List[str]:
+    """
+    Retrieves list of question IDs previously asked to this candidate (ordered from most recent).
+    """
+    conn = get_connection(use_test_db=use_test_db)
+    cursor = conn.cursor()
+
+    if role:
+        cursor.execute("""
+            SELECT question_id FROM interview_question_history
+            WHERE user_id = ? AND role = ?
+            ORDER BY asked_at DESC LIMIT ?
+        """, (user_id, role, limit))
+    else:
+        cursor.execute("""
+            SELECT question_id FROM interview_question_history
+            WHERE user_id = ?
+            ORDER BY asked_at DESC LIMIT ?
+        """, (user_id, limit))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    seen = set()
+    result = []
+    for r in rows:
+        qid = r["question_id"] if isinstance(r, dict) else r[0]
+        if qid not in seen:
+            seen.add(qid)
+            result.append(qid)
+    return result
+
+
+# ==================== Attempt Tracking (A1 -> Latest) Layer ====================
+
+def get_candidate_attempts_for_role(
+    user_id: str,
+    role: str,
+    use_test_db: bool = False
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves chronological attempt history for a specific role (A1, A2, A3...).
+    """
+    conn = get_connection(use_test_db=use_test_db)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM interview_attempts
+        WHERE user_id = ? AND role = ?
+        ORDER BY attempt_number ASC
+    """, (user_id, role))
+    rows = cursor.fetchall()
+    conn.close()
+
+    attempts = []
+    for r in rows:
+        d = dict(r)
+        for json_col, target_key in [
+            ("topic_scores_json", "topicScores"),
+            ("weaknesses_json", "weaknesses"),
+            ("recommendations_json", "recommendations")
+        ]:
+            val = d.get(json_col)
+            if val:
+                if isinstance(val, (dict, list)):
+                    d[target_key] = val
+                else:
+                    try:
+                        d[target_key] = json.loads(val)
+                    except Exception:
+                        d[target_key] = {}
+            else:
+                d[target_key] = {} if target_key == "topicScores" else []
+        d["overallScore"] = d.get("overall_score")
+        d["attemptNumber"] = d.get("attempt_number")
+        d["userId"] = d.get("user_id")
+        d["interviewId"] = d.get("interview_id")
+        d["createdAt"] = d.get("created_at")
+        d["attemptLabel"] = f"A{d.get('attempt_number', 1)}"
+        attempts.append(d)
+    return attempts
+
+
+def save_interview_attempt(
+    user_id: str,
+    role: str,
+    interview_id: str,
+    overall_score: int,
+    topic_scores: Dict[str, Any],
+    weaknesses: List[Dict[str, Any]],
+    recommendations: Any,
+    status: str = "completed",
+    use_test_db: bool = False
+) -> Dict[str, Any]:
+    """
+    Saves a formal attempt progression record (e.g. A1, A2, A3) for a candidate and role.
+    """
+    conn = get_connection(use_test_db=use_test_db)
+    cursor = conn.cursor()
+
+    # Determine next attempt number for this candidate and role
+    cursor.execute("""
+        SELECT COUNT(*) AS cnt FROM interview_attempts
+        WHERE user_id = ? AND role = ?
+    """, (user_id, role))
+    cnt_row = cursor.fetchone()
+    count_attempts = cnt_row["cnt"] if isinstance(cnt_row, dict) else cnt_row[0]
+    attempt_num = int(count_attempts) + 1
+
+    attempt_id = f"att_{user_id[:8]}_{attempt_num}_{int(datetime.utcnow().timestamp())}"
+    now_iso = datetime.utcnow().isoformat()
+
+    topic_scores_json = json.dumps(topic_scores)
+    weaknesses_json = json.dumps(weaknesses)
+    recommendations_json = json.dumps(recommendations)
+
+    cursor.execute("""
+        INSERT INTO interview_attempts (id, user_id, role, attempt_number, interview_id, overall_score, topic_scores_json, weaknesses_json, recommendations_json, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        attempt_id, user_id, role, attempt_num, interview_id, int(overall_score),
+        topic_scores_json, weaknesses_json, recommendations_json, status, now_iso
+    ))
+    conn.commit()
+    conn.close()
+
+    return {
+        "id": attempt_id,
+        "userId": user_id,
+        "role": role,
+        "attemptNumber": attempt_num,
+        "attemptLabel": f"A{attempt_num}",
+        "interviewId": interview_id,
+        "overallScore": overall_score,
+        "topicScores": topic_scores,
+        "weaknesses": weaknesses,
+        "recommendations": recommendations,
+        "status": status,
+        "createdAt": now_iso
+    }

@@ -1,4 +1,4 @@
-import { INTERVIEW_ROLES, QUESTION_BANK, PERSONAS, INTERVIEW_MODES, getQuestionsForRole, getInterviewer, getInterviewerForRole, INTERVIEWERS } from '../data/questionBank.js';
+import { INTERVIEW_ROLES, QUESTION_BANK, PERSONAS, INTERVIEW_MODES, getQuestionsForRole, getDurationQuestionCount, getInterviewer, getInterviewerForRole, INTERVIEWERS } from '../data/questionBank.js';
 import { parseResumeFile } from './resumeParser.js';
 import { getAuthHeaders } from './auth.js';
 import { SpeechEngine } from './speechEngine.js';
@@ -85,10 +85,10 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
   ];
 
   const DURATION_PRESETS = [
-    { minutes: 5, label: '5 Mins', badge: 'Express Sprint', desc: '2-3 focused questions' },
-    { minutes: 15, label: '15 Mins', badge: 'Standard Round', desc: '4-5 calibrated questions' },
-    { minutes: 30, label: '30 Mins', badge: 'In-Depth', desc: 'Comprehensive technical exploration' },
-    { minutes: 45, label: '45 Mins', badge: 'Full Loop', desc: 'Rigorous complete interview' }
+    { minutes: 5, label: '5 Mins', badge: 'Express Sprint', desc: '3 focused questions' },
+    { minutes: 15, label: '15 Mins', badge: 'Standard Round', desc: '5 calibrated questions' },
+    { minutes: 30, label: '30 Mins', badge: 'In-Depth', desc: '9 comprehensive questions' },
+    { minutes: 45, label: '45 Mins', badge: 'Full Loop', desc: '13 rigorous questions' }
   ];
 
   function getSelectedRole() {
@@ -747,10 +747,10 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
             </div>
 
             <div style="padding: 1rem; background: rgba(255,255,255,0.03); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-              <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: #34d399; margin-bottom: 0.35rem;">Duration</div>
+              <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: #34d399; margin-bottom: 0.35rem;">Duration & Questions</div>
               <div style="display: flex; align-items: center; gap: 0.45rem;">
                 <span style="font-size: 1.25rem;">⏱️</span>
-                <strong style="color: #fff; font-size: 0.92rem;">${timerMinutes} Minutes</strong>
+                <strong style="color: #fff; font-size: 0.92rem;">${getDurationQuestionCount(timerMinutes)} Qs • ${timerMinutes} Mins</strong>
               </div>
             </div>
 
@@ -1017,19 +1017,56 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
 
     const launchBtn = container.querySelector('#launch-interview-btn');
     if (launchBtn) {
-      launchBtn.addEventListener('click', () => {
+      launchBtn.addEventListener('click', async () => {
         const selectedRole = getSelectedRole();
         const effectiveTitle = (selectedRole.id === 'custom_role' && customRoleTitle.trim()) 
           ? customRoleTitle.trim() 
           : selectedRole.title;
 
+        const targetCount = getDurationQuestionCount(timerMinutes);
+        launchBtn.disabled = true;
+        launchBtn.innerHTML = `<span>Calibrating ${targetCount} Questions...</span>`;
+
         let questions = [];
-        if (questionSource === 'resume' && parsedResumeData) {
-          questions = [...parsedResumeData.generatedQuestions];
-        } else if (questionSource === 'custom' && customQuestionList.length > 0) {
-          questions = [...customQuestionList];
-        } else {
-          questions = getQuestionsForRole(selectedRole.categoryKey, customRoleTitle, selectedLevel);
+        let attemptNumber = 1;
+        let attemptLabel = 'A1';
+
+        // 1. Try requesting intelligent deduplicated question set from FastAPI backend
+        try {
+          const res = await fetch('http://localhost:8000/api/interviews/questions/prepare', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              role: effectiveTitle,
+              level: selectedLevel,
+              durationMinutes: timerMinutes,
+              customRoleTitle: customRoleTitle.trim(),
+              resumeSkills: parsedResumeData ? (parsedResumeData.skills || []) : [],
+              resumeProjects: parsedResumeData ? (parsedResumeData.projects || []) : [],
+              category: selectedRole.categoryKey
+            })
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && json.questions?.length) {
+              questions = json.questions;
+              attemptNumber = json.attemptNumber || 1;
+              attemptLabel = json.attemptLabel || `A${attemptNumber}`;
+            }
+          }
+        } catch (e) {
+          console.info('Backend question preparation unavailable; engaging calibrated offline question bank:', e?.message);
+        }
+
+        // 2. Client fallback if backend was unreachable or returned empty
+        if (!questions || questions.length === 0) {
+          if (questionSource === 'resume' && parsedResumeData?.generatedQuestions?.length) {
+            questions = [...parsedResumeData.generatedQuestions].slice(0, targetCount);
+          } else if (questionSource === 'custom' && customQuestionList.length > 0) {
+            questions = [...customQuestionList].slice(0, targetCount);
+          } else {
+            questions = getQuestionsForRole(selectedRole.categoryKey, customRoleTitle, selectedLevel, timerMinutes);
+          }
         }
 
         const setupPayload = {
@@ -1044,6 +1081,8 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
           saveRecording,
           projectName: assignedProject,
           questions,
+          attemptNumber,
+          attemptLabel,
           parsedResumeData
         };
 

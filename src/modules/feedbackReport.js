@@ -1,6 +1,6 @@
 import confetti from 'canvas-confetti';
 
-export function renderFeedbackReport(container, report, onReturnHome) {
+export function renderFeedbackReport(container, report, onReturnHome, onRetakeInterview) {
   // Trigger celebration confetti if overall score >= 75
   if (report && report.overallScore >= 75) {
     try {
@@ -24,6 +24,14 @@ export function renderFeedbackReport(container, report, onReturnHome) {
     fillerWordsCount: 0,
     pausesCount: 0
   };
+
+  // Attempt & Progression metadata
+  const attemptNum = report?.attempt_number || report?.attemptNumber || 1;
+  const attemptLabel = report?.attemptLabel || `A${attemptNum}`;
+  const progression = report?.attemptProgression || null;
+  const deltaFromA1 = progression?.deltaFromA1 ?? 0;
+  const deltaFromPrev = progression?.deltaFromPrevious ?? 0;
+  const isMultiAttempt = attemptNum > 1 && progression;
 
   // Extract answers array
   const rawAnswers = Array.isArray(report?.answers) ? report.answers : [];
@@ -319,6 +327,9 @@ export function renderFeedbackReport(container, report, onReturnHome) {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.8rem; flex-wrap: wrap; gap: 1rem;">
           <div>
             <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
+              <span class="badge" style="background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(2,132,199,0.25)); border: 1.5px solid var(--secondary); color: #fff; font-weight: 800; font-size: 0.78rem;">
+                Attempt #${attemptLabel} ${deltaFromA1 !== 0 ? (deltaFromA1 > 0 ? `(+${deltaFromA1}% from A1)` : `(${deltaFromA1}% from A1)`) : ''}
+              </span>
               <span class="badge badge-emerald">InterviewIQ Verified Audit</span>
               <span class="badge badge-purple">${report.category || 'Technical'} Track</span>
               <span class="badge" style="background: rgba(255,255,255,0.08);">${report.mode || 'Technical Practice'}</span>
@@ -468,6 +479,203 @@ export function renderFeedbackReport(container, report, onReturnHome) {
           </div>
         </div>
 
+        <!-- ========================================================
+             CHRONOLOGICAL ATTEMPT PROGRESSION & COMPARISON
+             ======================================================== -->
+        ${progression ? `
+          <div class="glass-card" style="padding: 1.8rem; margin-bottom: 1.8rem; border-left: 4px solid ${progression.scenario === 'C' || progression.scenario === 'D' ? '#10b981' : (progression.scenario === 'B' ? '#ef4444' : '#f59e0b')}; background: linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,41,59,0.4) 100%);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
+                  <span class="badge" style="background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); color: #fff; font-weight: 800;">
+                    Attempt #${progression.attemptLabel || attemptLabel}
+                  </span>
+                  <span class="badge" style="background: ${progression.scenario === 'C' ? 'rgba(16,185,129,0.2)' : 'rgba(56,189,248,0.2)'}; color: ${progression.scenario === 'C' ? '#34d399' : '#38bdf8'}; font-weight: 700;">
+                    Scenario ${progression.scenario}: ${progression.headline}
+                  </span>
+                  ${isMultiAttempt && deltaFromA1 !== 0 ? `
+                    <span class="badge" style="background: ${deltaFromA1 > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}; color: ${deltaFromA1 > 0 ? '#34d399' : '#ef4444'}; font-weight: 800;">
+                      ${deltaFromA1 > 0 ? `▲ +${deltaFromA1}%` : `▼ ${deltaFromA1}%`} vs A1 Baseline
+                    </span>
+                  ` : ''}
+                </div>
+                <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 0.4rem;">
+                  ${progression.headline}
+                </h3>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0; line-height: 1.5; max-width: 850px;">
+                  ${progression.actionMessage}
+                </p>
+              </div>
+
+              ${progression.retryRecommended ? `
+                <button type="button" id="retake-interview-btn" class="btn btn-primary" style="background: linear-gradient(135deg, #0284c7 0%, #6366f1 100%); font-weight: 800; border-radius: var(--radius-full); box-shadow: 0 0 20px rgba(99,102,241,0.4); padding: 0.75rem 1.6rem; display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                  <span>Retake Interview (Target Weaknesses)</span>
+                </button>
+              ` : ''}
+            </div>
+
+            <!-- Side-by-Side Comparison if multi-attempt -->
+            ${isMultiAttempt ? `
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08);">
+                <div style="background: rgba(0,0,0,0.25); padding: 0.85rem 1.1rem; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Score Progression</div>
+                  <div style="display: flex; align-items: baseline; gap: 0.6rem; margin-top: 0.25rem;">
+                    <span style="font-size: 1.4rem; font-weight: 800; color: #94a3b8;">A1: ${progression.a1Score}%</span>
+                    <span style="font-size: 1.2rem; color: var(--text-muted);">→</span>
+                    <span style="font-size: 1.6rem; font-weight: 800; color: #34d399;">${attemptLabel}: ${report.overallScore}%</span>
+                  </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.25); padding: 0.85rem 1.1rem; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 0.72rem; color: #34d399; text-transform: uppercase; font-weight: 700;">✓ Resolved Weaknesses</div>
+                  <div style="font-size: 0.85rem; color: #fff; margin-top: 0.35rem; line-height: 1.4;">
+                    ${(progression.resolvedWeaknesses && progression.resolvedWeaknesses.length > 0) 
+                      ? progression.resolvedWeaknesses.map(rw => `<span class="badge badge-emerald" style="margin: 2px;">✓ ${rw.topic} (+${rw.improvement}%)</span>`).join('') 
+                      : '<span style="color: var(--text-muted);">None yet resolved</span>'}
+                  </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.25); padding: 0.85rem 1.1rem; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 0.72rem; color: #f43f5e; text-transform: uppercase; font-weight: 700;">⚠️ Recurring Weaknesses</div>
+                  <div style="font-size: 0.85rem; color: #fff; margin-top: 0.35rem; line-height: 1.4;">
+                    ${(progression.recurringWeaknesses && progression.recurringWeaknesses.length > 0)
+                      ? progression.recurringWeaknesses.map(rw => `<span class="badge" style="background: rgba(244,63,94,0.2); color: #f43f5e; border: 1px solid rgba(244,63,94,0.4); margin: 2px;">⚠️ ${rw.topic} (${rw.currentScore}%)</span>`).join('')
+                      : '<span style="color: #34d399;">Zero recurring gaps detected</span>'}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        <!-- ========================================================
+             TOPIC MASTERY BREAKDOWN MATRIX (4 SCORE BANDS)
+             ======================================================== -->
+        <div class="glass-card" style="padding: 1.8rem; margin-bottom: 1.8rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 0.25rem;">
+                Topic-Level Weakness Detection &amp; Mastery Matrix
+              </h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">
+                Calibrated across 4 score bands: Priority Improvement (&lt;50%), Focused Practice (50-69%), Skill Refinement (70-84%), and Advanced Mastery (85-100%).
+              </p>
+            </div>
+            
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+              <span class="badge" style="background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); font-size: 0.7rem;">&lt;50% Priority</span>
+              <span class="badge" style="background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); font-size: 0.7rem;">50-69% Focus</span>
+              <span class="badge" style="background: rgba(56,189,248,0.2); color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); font-size: 0.7rem;">70-84% Proficient</span>
+              <span class="badge" style="background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.4); font-size: 0.7rem;">85-100% Mastered</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+            ${(report.topicBreakdown?.topics ? Object.values(report.topicBreakdown.topics) : (
+              // Client fallback calculation if topics not pre-calculated
+              (() => {
+                const map = {};
+                answers.forEach(a => {
+                  const t = a.topic || a.category || 'Core Engineering';
+                  const s = a.evaluation?.overallScore ?? a.score ?? 50;
+                  if (!map[t]) map[t] = [];
+                  map[t].push(s);
+                });
+                return Object.entries(map).map(([topic, scores]) => {
+                  const avg = Math.round(scores.reduce((sum, v) => sum + v, 0) / scores.length);
+                  let band = 'Advanced Mastery';
+                  let bandKey = 'advanced_mastery';
+                  if (avg < 50) { band = 'Priority Improvement'; bandKey = 'priority_improvement'; }
+                  else if (avg < 70) { band = 'Focused Practice'; bandKey = 'focused_practice'; }
+                  else if (avg < 85) { band = 'Skill Refinement'; bandKey = 'skill_refinement'; }
+                  return { topic, averageScore: avg, band, bandKey, questionCount: scores.length };
+                });
+              })()
+            )).map(t => {
+              const score = Math.round(t.averageScore);
+              const isCrit = score < 50;
+              const isFocus = score >= 50 && score < 70;
+              const isProf = score >= 70 && score < 85;
+              const col = isCrit ? '#ef4444' : (isFocus ? '#f59e0b' : (isProf ? '#38bdf8' : '#34d399'));
+              return `
+                <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-left: 3px solid ${col}; border-radius: var(--radius-md); padding: 1.1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <strong style="color: #fff; font-size: 0.95rem;">${t.topic}</strong>
+                    <span style="font-size: 1.15rem; font-weight: 800; color: ${col}; font-family: var(--font-mono);">${score}%</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                    <span class="badge" style="background: ${col}22; color: ${col}; font-size: 0.68rem; font-weight: 700; border: 1px solid ${col}44;">
+                      ${t.band}
+                    </span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">${t.questionCount || 1} question${(t.questionCount || 1) > 1 ? 's' : ''}</span>
+                  </div>
+                  <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden;">
+                    <div style="width: ${score}%; height: 100%; background: ${col}; border-radius: 999px;"></div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- ========================================================
+             PERSONALIZED ADAPTIVE LEARNING PLAN
+             ======================================================== -->
+        ${(report.learningPlan && report.learningPlan.length > 0) ? `
+          <div class="glass-card" style="padding: 1.8rem; margin-bottom: 1.8rem;">
+            <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 1.4rem;">📚</span>
+              <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0;">
+                Personalized Adaptive Learning Plan
+              </h3>
+            </div>
+            <p style="font-size: 0.86rem; color: var(--text-secondary); margin: 0 0 1.35rem;">
+              Targeted study tasks, underlying concept analyses, and follow-up practice questions generated specifically for your identified gap areas.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 1.15rem;">
+              ${report.learningPlan.map(plan => `
+                <div style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md); padding: 1.35rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                      <h4 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0;">${plan.topic}</h4>
+                      <span class="badge" style="background: ${plan.urgency.includes('High') ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}; color: ${plan.urgency.includes('High') ? '#ef4444' : '#f59e0b'}; border: 1px solid ${plan.urgency.includes('High') ? 'rgba(239,68,68,0.4)' : 'rgba(245,158,11,0.4)'}; font-size: 0.7rem; font-weight: 800;">
+                        ${plan.urgency}
+                      </span>
+                    </div>
+                    <span style="font-family: var(--font-mono); font-size: 0.95rem; font-weight: 800; color: ${plan.currentScore < 50 ? '#ef4444' : '#f59e0b'};">
+                      Current Score: ${Math.round(plan.currentScore)}%
+                    </span>
+                  </div>
+
+                  <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 0.85rem; line-height: 1.45;">
+                    <strong style="color: #38bdf8;">Concept Focus:</strong> ${plan.conceptExplanation}
+                  </p>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <!-- Actionable Tasks -->
+                    <div style="background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.04);">
+                      <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: #34d399; margin-bottom: 0.45rem;">Recommended Study Tasks</div>
+                      <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+                        ${(plan.recommendedTasks || []).map(t => `<li style="margin-bottom: 0.35rem;">${t}</li>`).join('')}
+                      </ul>
+                    </div>
+
+                    <!-- Targeted Practice Questions -->
+                    <div style="background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.04);">
+                      <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: #38bdf8; margin-bottom: 0.45rem;">Follow-Up Practice Questions</div>
+                      <ol style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+                        ${(plan.practiceQuestions || []).map(q => `<li style="margin-bottom: 0.35rem;">${q}</li>`).join('')}
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
         <!-- Question-by-Question Evaluation Section -->
         <div style="margin-bottom: 2rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
@@ -520,6 +728,21 @@ export function renderFeedbackReport(container, report, onReturnHome) {
     if (returnBtn) {
       returnBtn.addEventListener('click', () => {
         if (onReturnHome) onReturnHome();
+      });
+    }
+
+    const retakeBtn = container.querySelector('#retake-interview-btn');
+    if (retakeBtn) {
+      retakeBtn.addEventListener('click', () => {
+        if (onRetakeInterview) {
+          onRetakeInterview({
+            role: report.role || report.targetRole,
+            level: report.level,
+            category: report.category
+          });
+        } else if (onReturnHome) {
+          onReturnHome();
+        }
       });
     }
 
