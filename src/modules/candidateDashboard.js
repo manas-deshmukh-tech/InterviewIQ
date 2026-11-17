@@ -1,4 +1,5 @@
 import { interviewStore, authState } from './auth.js';
+import { getSessionScore } from './interviewGrouping.js';
 
 export function renderCandidateDashboard(container, currentUser, onNewInterview, onViewReport) {
   function render() {
@@ -9,11 +10,11 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
     ['Python', 'SQL', 'Aptitude', 'HR', 'Behavioral'].forEach(cat => {
       const list = interviews.filter(i => i.category === cat);
       if (list.length > 0) {
-        const avg = Math.round(list.reduce((acc, curr) => acc + curr.overallScore, 0) / list.length);
+        const avg = Math.round(list.reduce((acc, curr) => acc + getSessionScore(curr), 0) / list.length);
         categoryStats[cat] = {
           count: list.length,
           avgScore: avg,
-          latestScore: list[0].overallScore
+          latestScore: getSessionScore(list[0])
         };
       } else {
         categoryStats[cat] = { count: 0, avgScore: null, latestScore: null };
@@ -21,7 +22,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
     });
 
     const overallAvg = interviews.length > 0 
-      ? Math.round(interviews.reduce((acc, c) => acc + c.overallScore, 0) / interviews.length)
+      ? Math.round(interviews.reduce((acc, c) => acc + getSessionScore(c), 0) / interviews.length)
       : 0;
 
     const validPaceInterviews = interviews.filter(i => typeof i.metrics?.avgPaceWpm === 'number' && i.metrics.avgPaceWpm > 0);
@@ -29,21 +30,20 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
       ? Math.round(validPaceInterviews.reduce((acc, curr) => acc + curr.metrics.avgPaceWpm, 0) / validPaceInterviews.length)
       : null;
 
-    // Chronological order (oldest to newest) for A1 -> Latest trajectory
-    const chronological = [...interviews].sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Chronological order (oldest to newest) for Attempt 1 -> Latest trajectory
+    const chronological = [...interviews].sort((a, b) => new Date(a.date || a.created_at || 0) - new Date(b.date || b.created_at || 0));
     const totalAttempts = chronological.length;
     const latestInv = chronological[totalAttempts - 1];
     const firstInv = chronological[0];
-    const scoreDelta = (totalAttempts > 1 && latestInv && firstInv) 
-      ? Math.round(latestInv.overallScore - firstInv.overallScore) 
-      : 0;
+    const latestScore = latestInv ? getSessionScore(latestInv) : 0;
+    const firstScore = firstInv ? getSessionScore(firstInv) : 0;
+    const scoreDelta = totalAttempts > 1 ? (latestScore - firstScore) : 0;
 
     // Detect active scenario for retry banner
     let activeRecommendation = null;
     if (latestInv?.attemptProgression) {
       activeRecommendation = latestInv.attemptProgression;
     } else if (latestInv) {
-      const latestScore = latestInv.overallScore || 0;
       if (latestScore >= 85) {
         activeRecommendation = {
           scenario: 'D',
@@ -61,7 +61,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
       } else if (totalAttempts > 1 && scoreDelta > 0) {
         activeRecommendation = {
           scenario: 'C',
-          headline: `Measurable Improvement Demonstrated (+${scoreDelta}% from A1)`,
+          headline: `Measurable Improvement Demonstrated (+${scoreDelta}% from Attempt 1)`,
           actionMessage: `Great trajectory! Your score climbed from ${firstInv.overallScore}% to ${latestScore}%. Keep practicing remaining topics to hit 85%+ mastery.`,
           retryRecommended: latestScore < 80
         };
@@ -69,7 +69,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
         activeRecommendation = {
           scenario: 'A',
           headline: 'Targeted Study Recommended Before Retrying',
-          actionMessage: 'Your initial attempt (A1) scored below the 50% benchmark. Review your learning plan and complete practice questions to build core foundations.',
+          actionMessage: 'Your initial attempt (Attempt 1) scored below the 50% benchmark. Review your learning plan and complete practice questions to build core foundations.',
           retryRecommended: true
         };
       }
@@ -114,7 +114,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
                 </span>
                 ${scoreDelta !== 0 ? `
                   <span class="badge" style="background: ${scoreDelta > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}; color: ${scoreDelta > 0 ? '#34d399' : '#ef4444'}; font-weight: 800;">
-                    ${scoreDelta > 0 ? `▲ +${scoreDelta}%` : `▼ ${scoreDelta}%`} since A1
+                    ${scoreDelta > 0 ? `▲ +${scoreDelta}%` : `▼ ${scoreDelta}%`} since Attempt 1
                   </span>
                 ` : ''}
               </div>
@@ -129,7 +129,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
             ${activeRecommendation.retryRecommended ? `
               <button type="button" id="dashboard-retake-btn" class="btn btn-primary" style="background: linear-gradient(135deg, #0284c7 0%, #6366f1 100%); font-weight: 800; border-radius: var(--radius-full); box-shadow: 0 0 20px rgba(99,102,241,0.4); padding: 0.85rem 2rem; display: inline-flex; align-items: center; gap: 0.6rem; cursor: pointer;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                <span>Launch Next Attempt (A${totalAttempts + 1})</span>
+                <span>Launch Next Attempt (Attempt ${totalAttempts + 1})</span>
               </button>
             ` : ''}
           </div>
@@ -181,7 +181,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
                   <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-secondary);">${chronological.length} Attempt${chronological.length > 1 ? 's' : ''} Recorded</span>
                 </div>
                 <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0;">
-                  Chronological Progression Curve (A1 → Latest Attempt)
+                  Chronological Progression Curve (Attempt 1 → Latest Attempt)
                 </h3>
               </div>
               ${scoreDelta !== 0 ? `
@@ -199,7 +199,7 @@ export function renderCandidateDashboard(container, currentUser, onNewInterview,
               <div style="position: absolute; top: 50%; left: 30px; right: 30px; height: 3px; background: linear-gradient(90deg, #6366f1, #0284c7, #10b981); transform: translateY(-50%); z-index: 1;"></div>
               
               ${chronological.map((inv, idx) => {
-                const attLabel = inv.attemptLabel || `A${idx + 1}`;
+                const attLabel = `Attempt ${idx + 1}`;
                 const score = inv.overallScore || 0;
                 const scoreColor = score >= 80 ? '#34d399' : (score >= 60 ? '#38bdf8' : (score >= 50 ? '#f59e0b' : '#ef4444'));
                 const isLatest = idx === chronological.length - 1;

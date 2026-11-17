@@ -518,6 +518,7 @@ export function renderApp() {
       currentUser: state.currentUser,
       activeTab: state.activeNavTab || 'dashboard',
       currentTheme: currentTheme,
+      initialSetupConfig: state.activeSetupConfig,
       onTabChange: (newTab) => {
         state.activeNavTab = newTab;
       },
@@ -577,7 +578,9 @@ export function renderApp() {
         renderApp();
       },
       (retryConfig) => {
-        state.currentView = 'interview_setup';
+        state.activeSetupConfig = retryConfig;
+        state.activeNavTab = 'start_interview';
+        state.currentView = 'dashboard';
         renderApp();
       }
     );

@@ -1,5 +1,6 @@
 import { interviewStore, authState } from './auth.js';
 import { renderInterviewSetup } from './interviewSetup.js';
+import { groupInterviewSessions, getSessionScore } from './interviewGrouping.js';
 
 /**
  * InterviewIQ Authenticated App Shell Layout
@@ -25,7 +26,8 @@ export function renderAppLayout(container, {
   onSignOut,
   onEditProfile,
   onToggleTheme,
-  currentTheme = 'dark'
+  currentTheme = 'dark',
+  initialSetupConfig = null
 }) {
   const user = currentUser || authState.getCurrentUser() || { id: 'default', name: 'Candidate', email: 'candidate@interviewiq.com', role: 'Candidate' };
   let currentActiveTab = activeTab;
@@ -272,10 +274,11 @@ export function renderAppLayout(container, {
   }
 
   /**
-   * 3. My Interviews: History and past evaluations
+   * 3. My Interviews: History and past evaluations (Grouped Series & Attempt Selector)
    */
   function renderMyInterviews() {
-    const interviews = interviewStore.getUserInterviews(user.id);
+    const rawInterviews = interviewStore.getUserInterviews(user.id);
+    const seriesList = groupInterviewSessions(rawInterviews, user.id);
 
     return `
       <div class="fade-in" style="padding: 1.75rem 2.25rem;">
@@ -297,7 +300,7 @@ export function renderAppLayout(container, {
           </button>
         </div>
 
-        ${interviews.length === 0 ? `
+        ${seriesList.length === 0 ? `
           <div class="glass-card" style="padding: 3.5rem 1.5rem; text-align: center; border-radius: var(--radius-lg);">
             <div style="font-size: 2.2rem; margin-bottom: 0.75rem;">📁</div>
             <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">No Completed Interviews Yet</h3>
@@ -323,33 +326,132 @@ export function renderAppLayout(container, {
                   </tr>
                 </thead>
                 <tbody>
-                  ${interviews.map(inv => `
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                      <td style="padding: 0.85rem 0.6rem;">
-                        <strong style="color: var(--text-main); display: block; font-size: 0.92rem;">${inv.title}</strong>
-                        <span style="font-size: 0.72rem; color: var(--text-muted);">${new Date(inv.date).toLocaleDateString()}</span>
-                      </td>
-                      <td style="padding: 0.85rem 0.6rem;">
-                        <span class="badge badge-cyan" style="font-size: 0.72rem;">${inv.category}</span>
-                      </td>
-                      <td style="padding: 0.85rem 0.6rem; color: var(--text-secondary); font-size: 0.82rem;">
-                        ${inv.level || 'Mid Level'}
-                      </td>
-                      <td style="padding: 0.85rem 0.6rem;">
-                        <span style="font-weight: 800; font-size: 0.98rem; color: ${inv.overallScore >= 80 ? '#10b981' : inv.overallScore >= 60 ? '#f59e0b' : '#ef4444'};">
-                          ${inv.overallScore}%
-                        </span>
-                      </td>
-                      <td style="padding: 0.85rem 0.6rem; font-size: 0.78rem; color: var(--text-secondary);">
-                        ${inv.metrics?.avgPaceWpm || 135} WPM • ${inv.metrics?.fillerWordsCount || 0} fillers
-                      </td>
-                      <td style="padding: 0.85rem 0.6rem; text-align: right;">
-                        <button type="button" class="btn btn-secondary btn-sm view-report-btn" data-id="${inv.id}" style="padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 600;">
-                          View Report
-                        </button>
-                      </td>
-                    </tr>
-                  `).join('')}
+                  ${seriesList.map(series => {
+                    const latest = series.latestAttempt;
+                    const score = series.latestScore;
+                    const scoreColor = score >= 80 ? '#10b981' : (score >= 60 ? '#f59e0b' : '#ef4444');
+                    const wpm = series.latestMetrics?.avgPaceWpm || 135;
+                    const fillers = series.latestMetrics?.fillerWordsCount || 0;
+                    const formattedDate = new Date(series.latestDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+                    if (!series.isMultiAttempt) {
+                      // Single-attempt session: preserves existing clean single-interview layout
+                      return `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                          <td style="padding: 0.85rem 0.6rem;">
+                            <strong style="color: var(--text-main); display: block; font-size: 0.92rem;">${series.title}</strong>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">${formattedDate}${series.duration ? ' • ' + series.duration + ' Mins' : ''}</span>
+                          </td>
+                          <td style="padding: 0.85rem 0.6rem;">
+                            <span class="badge badge-cyan" style="font-size: 0.72rem;">${series.category}</span>
+                          </td>
+                          <td style="padding: 0.85rem 0.6rem; color: var(--text-secondary); font-size: 0.82rem;">
+                            ${series.level}
+                          </td>
+                          <td style="padding: 0.85rem 0.6rem;">
+                            <span style="font-weight: 800; font-size: 0.98rem; color: ${scoreColor};">
+                              ${score}%
+                            </span>
+                          </td>
+                          <td style="padding: 0.85rem 0.6rem; font-size: 0.78rem; color: var(--text-secondary);">
+                            ${wpm} WPM • ${fillers} fillers
+                          </td>
+                          <td style="padding: 0.85rem 0.6rem; text-align: right;">
+                            <button type="button" class="btn btn-secondary btn-sm view-report-btn" data-id="${latest.id}" style="padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 600;">
+                              View Report
+                            </button>
+                          </td>
+                        </tr>
+                      `;
+                    }
+
+                    // Multi-attempt series: Grouped parent entry with expandable attempt selector
+                    return `
+                      <tr class="grouped-series-row" data-series-id="${series.id}" style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 0.85rem 0.6rem;">
+                          <strong style="color: var(--text-main); display: block; font-size: 0.92rem;">${series.title}</strong>
+                          <div style="display: flex; align-items: center; gap: 0.45rem; margin-top: 0.2rem; flex-wrap: wrap;">
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">${formattedDate}${series.duration ? ' • ' + series.duration + ' Mins' : ''}</span>
+                            <span class="badge" style="background: rgba(99, 102, 241, 0.16); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.35); font-weight: 700; font-size: 0.68rem; padding: 0.12rem 0.5rem;">${series.totalAttempts} Attempts</span>
+                          </div>
+                        </td>
+                        <td style="padding: 0.85rem 0.6rem;">
+                          <span class="badge badge-cyan" style="font-size: 0.72rem;">${series.category}</span>
+                        </td>
+                        <td style="padding: 0.85rem 0.6rem; color: var(--text-secondary); font-size: 0.82rem;">
+                          ${series.level}
+                        </td>
+                        <td style="padding: 0.85rem 0.6rem;">
+                          <span style="font-weight: 800; font-size: 0.98rem; color: ${scoreColor};">
+                            ${score}%
+                          </span>
+                          <span style="font-size: 0.68rem; color: var(--text-muted); display: block;">Latest Attempt</span>
+                        </td>
+                        <td style="padding: 0.85rem 0.6rem; font-size: 0.78rem; color: var(--text-secondary);">
+                          ${wpm} WPM • ${fillers} fillers
+                        </td>
+                        <td style="padding: 0.85rem 0.6rem; text-align: right;">
+                          <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.45rem;">
+                            <button type="button" class="btn btn-secondary btn-sm toggle-attempts-btn" data-series-id="${series.id}" aria-expanded="false" aria-controls="attempts-drawer-${series.id}" title="Toggle attempt history" style="padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem;">
+                              <span>View Attempts</span>
+                              <svg class="chevron-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition: transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm view-report-btn" data-id="${latest.id}" style="padding: 0.35rem 0.85rem; font-size: 0.78rem; font-weight: 600;" title="View Latest Report">
+                              View Report
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      <!-- Expandable Attempt Selector Sub-Row -->
+                      <tr id="attempts-drawer-${series.id}" class="attempts-drawer-row" style="display: none; background: rgba(0, 0, 0, 0.22); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                        <td colspan="6" style="padding: 1rem 1.25rem 1.25rem;">
+                          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem 1.25rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); flex-wrap: wrap; gap: 0.5rem;">
+                              <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                                <span>Series Attempt History</span>
+                                <span class="badge" style="background: rgba(255, 255, 255, 0.06); color: var(--text-muted); font-size: 0.68rem;">${series.totalAttempts} Total Attempts (Chronological)</span>
+                              </div>
+                              <span style="font-size: 0.72rem; color: var(--text-muted);">Select any historical attempt to review its original report</span>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                              ${series.attempts.map((att) => {
+                                const isLatest = att.isLatest;
+                                const attScore = getSessionScore(att);
+                                const attScoreColor = attScore >= 80 ? '#10b981' : (attScore >= 60 ? '#f59e0b' : '#ef4444');
+                                const attDateStr = new Date(att.date || att.created_at || att.report?.date || 0).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                                const attWpm = att.metrics?.avgPaceWpm || att.report?.metrics?.avgPaceWpm || 135;
+                                const attFillers = att.metrics?.fillerWordsCount ?? att.report?.metrics?.fillerWordsCount ?? 0;
+
+                                return `
+                                  <div class="attempt-item-card" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 0.9rem; background: ${isLatest ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255, 255, 255, 0.015)'}; border: 1px solid ${isLatest ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.04)'}; border-radius: var(--radius-sm); transition: background 0.15s; flex-wrap: wrap; gap: 0.5rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.65rem;">
+                                      <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main);">${att.displayLabel}</span>
+                                      ${isLatest ? `<span class="badge badge-emerald" style="font-size: 0.65rem; padding: 0.12rem 0.45rem;">Latest</span>` : ''}
+                                      <span style="font-size: 0.75rem; color: var(--text-muted);">• ${attDateStr}</span>
+                                    </div>
+
+                                    <div style="display: flex; align-items: center; gap: 1.25rem;">
+                                      <div style="font-size: 0.78rem; color: var(--text-secondary);">
+                                        ${attWpm} WPM • ${attFillers} fillers
+                                      </div>
+                                      <div style="font-weight: 800; font-size: 0.92rem; color: ${attScoreColor}; min-width: 45px; text-align: right;">
+                                        ${attScore}%
+                                      </div>
+                                      <button type="button" class="btn btn-secondary btn-sm view-report-btn" data-id="${att.id}" style="padding: 0.28rem 0.75rem; font-size: 0.75rem; font-weight: 600;" title="View Report for ${att.displayLabel}">
+                                        View Report
+                                      </button>
+                                    </div>
+                                  </div>
+                                `;
+                              }).join('')}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
                 </tbody>
               </table>
             </div>
@@ -645,14 +747,35 @@ export function renderAppLayout(container, {
       });
     }
 
-    // View report buttons
+    // View report buttons (supports both main row and expanded attempt drawer buttons)
     container.querySelectorAll('.view-report-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.id;
         const interviews = interviewStore.getUserInterviews(user.id);
-        const inv = interviews.find(i => i.id === id);
+        const inv = interviews.find(i => String(i.id) === String(id));
         if (inv && onViewReport) {
           onViewReport(inv);
+        }
+      });
+    });
+
+    // Expandable attempt history drawer toggles
+    container.querySelectorAll('.toggle-attempts-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const seriesId = btn.dataset.seriesId;
+        const drawer = container.querySelector(`#attempts-drawer-${seriesId}`);
+        const chevron = btn.querySelector('.chevron-icon');
+        const span = btn.querySelector('span');
+        if (drawer) {
+          const isExpanded = drawer.style.display !== 'none';
+          drawer.style.display = isExpanded ? 'none' : 'table-row';
+          btn.setAttribute('aria-expanded', !isExpanded);
+          if (span) {
+            span.textContent = isExpanded ? 'View Attempts' : 'Hide Attempts';
+          }
+          if (chevron) {
+            chevron.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+          }
         }
       });
     });
@@ -668,7 +791,8 @@ export function renderAppLayout(container, {
             if (onStartActiveInterview) {
               onStartActiveInterview(setupConfig);
             }
-          }
+          },
+          initialSetupConfig
         );
       }
     }

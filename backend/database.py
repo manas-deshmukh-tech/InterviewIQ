@@ -740,6 +740,20 @@ def get_interview_by_id(interview_id: str, use_test_db: bool = False) -> Optiona
                     d[target_key] = json.loads(val)
                 except Exception:
                     d[target_key] = {}
+    rep = d.get("report") if isinstance(d.get("report"), dict) else {}
+    score = None
+    if rep.get("overallScore") is not None:
+        score = rep.get("overallScore")
+    elif d.get("overall_score") is not None:
+        score = d.get("overall_score")
+    elif rep.get("overall_score") is not None:
+        score = rep.get("overall_score")
+    elif d.get("overallScore") is not None:
+        score = d.get("overallScore")
+    else:
+        score = 0
+    d["overallScore"] = score
+    d["overall_score"] = score
     return d
 
 
@@ -767,6 +781,20 @@ def list_interviews(user_id: Optional[str] = None, use_test_db: bool = False) ->
                         d[target_key] = json.loads(val)
                     except Exception:
                         d[target_key] = {}
+        rep = d.get("report") if isinstance(d.get("report"), dict) else {}
+        score = None
+        if rep.get("overallScore") is not None:
+            score = rep.get("overallScore")
+        elif d.get("overall_score") is not None:
+            score = d.get("overall_score")
+        elif rep.get("overall_score") is not None:
+            score = rep.get("overall_score")
+        elif d.get("overallScore") is not None:
+            score = d.get("overallScore")
+        else:
+            score = 0
+        d["overallScore"] = score
+        d["overall_score"] = score
         results.append(d)
     return results
 
@@ -787,7 +815,18 @@ def save_interview(data: Dict[str, Any], enforced_user_id: Optional[str] = None,
     category = data.get("category") or "Software & Engineering"
     role = data.get("role") or "Software Engineer"
     level = data.get("level") or "Mid Level"
-    overall_score = int(data.get("overallScore") or 75)
+    raw_score = data.get("overallScore")
+    if raw_score is None:
+        raw_score = data.get("overall_score")
+    if raw_score is None and isinstance(data.get("report"), dict):
+        raw_score = data["report"].get("overallScore") if data["report"].get("overallScore") is not None else data["report"].get("overall_score")
+    if raw_score is not None:
+        try:
+            overall_score = int(round(float(raw_score)))
+        except (ValueError, TypeError):
+            overall_score = 0
+    else:
+        overall_score = 0
     mode = data.get("mode") or "Technical Practice"
     created_at = data.get("date") or datetime.utcnow().isoformat()
     attempt_number = int(data.get("attempt_number") or data.get("attemptNumber") or 1)
@@ -836,6 +875,8 @@ def save_interview(data: Dict[str, Any], enforced_user_id: Optional[str] = None,
     data["date"] = created_at
     data["attempt_number"] = attempt_number
     data["attemptNumber"] = attempt_number
+    data["parent_attempt_id"] = parent_attempt_id
+    data["parentAttemptId"] = parent_attempt_id
     return data
 
 

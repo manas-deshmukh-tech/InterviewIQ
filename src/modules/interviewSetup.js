@@ -3,7 +3,7 @@ import { parseResumeFile } from './resumeParser.js';
 import { getAuthHeaders } from './auth.js';
 import { SpeechEngine } from './speechEngine.js';
 
-export function renderInterviewSetup(container, currentUser = {}, onStartInterview) {
+export function renderInterviewSetup(container, currentUser = {}, onStartInterview, initialConfig = null) {
   const safeUser = currentUser || {};
   const speechEngine = new SpeechEngine();
   let currentStep = 1; // 1: Track & Resume | 2: Experience & Duration | 3: Ready to Begin
@@ -21,6 +21,26 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
   let searchQuery = '';
   let activeRoleFilter = 'engineering'; // 'engineering' | 'data' | 'design_business' | 'campus_hr'
   let answerMode = 'auto'; // 'auto' (direct auto-listen) | 'manual' (click to speak)
+
+  const parentAttemptId = initialConfig?.parentAttemptId || initialConfig?.parent_attempt_id || null;
+  const initialAttemptNumber = initialConfig?.attemptNumber || initialConfig?.attempt_number || null;
+
+  if (initialConfig) {
+    if (initialConfig.roleId) selectedRoleId = initialConfig.roleId;
+    else if (initialConfig.role) {
+      const matched = INTERVIEW_ROLES.find(r => r.title.toLowerCase() === initialConfig.role.toLowerCase() || r.id.toLowerCase() === initialConfig.role.toLowerCase());
+      if (matched) selectedRoleId = matched.id;
+      else customRoleTitle = initialConfig.role;
+    }
+    if (initialConfig.customRoleTitle) customRoleTitle = initialConfig.customRoleTitle;
+    if (initialConfig.level) selectedLevel = initialConfig.level;
+    if (initialConfig.mode) selectedMode = initialConfig.mode;
+    if (initialConfig.timerMinutes || initialConfig.durationMinutes) {
+      timerMinutes = Number(initialConfig.timerMinutes || initialConfig.durationMinutes);
+    }
+    if (initialConfig.projectName) assignedProject = initialConfig.projectName;
+    if (initialConfig.persona) selectedPersona = initialConfig.persona;
+  }
 
   const ROLE_CATEGORIES = [
     { 
@@ -1029,7 +1049,7 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
 
         let questions = [];
         let attemptNumber = 1;
-        let attemptLabel = 'A1';
+        let attemptLabel = 'Attempt 1';
 
         // 1. Try requesting intelligent deduplicated question set from FastAPI backend
         try {
@@ -1051,7 +1071,7 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
             if (json.success && json.questions?.length) {
               questions = json.questions;
               attemptNumber = json.attemptNumber || 1;
-              attemptLabel = json.attemptLabel || `A${attemptNumber}`;
+              attemptLabel = `Attempt ${attemptNumber}`;
             }
           }
         } catch (e) {
@@ -1081,8 +1101,10 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
           saveRecording,
           projectName: assignedProject,
           questions,
-          attemptNumber,
-          attemptLabel,
+          parentAttemptId: parentAttemptId || null,
+          parent_attempt_id: parentAttemptId || null,
+          attemptNumber: initialAttemptNumber || attemptNumber,
+          attemptLabel: initialAttemptNumber ? `Attempt ${initialAttemptNumber}` : attemptLabel,
           parsedResumeData
         };
 

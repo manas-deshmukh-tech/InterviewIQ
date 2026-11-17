@@ -1,8 +1,22 @@
 import confetti from 'canvas-confetti';
+import { getSessionScore } from './interviewGrouping.js';
 
-export function renderFeedbackReport(container, report, onReturnHome, onRetakeInterview) {
+export function renderFeedbackReport(container, rawReport, onReturnHome, onRetakeInterview) {
+  const nested = (rawReport && typeof rawReport.report === 'object') ? rawReport.report : {};
+
+  // Resolve authentic overall score through authoritative hierarchy
+  const finalScore = getSessionScore(rawReport);
+
+  // Normalization: Ensure report combines session attributes and authentic nested report details
+  const report = {
+    ...nested,
+    ...rawReport,
+    overallScore: finalScore,
+    overall_score: finalScore
+  };
+
   // Trigger celebration confetti if overall score >= 75
-  if (report && report.overallScore >= 75) {
+  if (finalScore >= 75) {
     try {
       confetti({
         particleCount: 60,
@@ -14,7 +28,7 @@ export function renderFeedbackReport(container, report, onReturnHome, onRetakeIn
     }
   }
 
-  const metrics = report?.metrics || {
+  const metrics = report?.metrics || nested?.metrics || {
     correctness: 0,
     depth: 0,
     clarity: 0,
@@ -26,21 +40,24 @@ export function renderFeedbackReport(container, report, onReturnHome, onRetakeIn
   };
 
   // Attempt & Progression metadata
-  const attemptNum = report?.attempt_number || report?.attemptNumber || 1;
-  const attemptLabel = report?.attemptLabel || `A${attemptNum}`;
-  const progression = report?.attemptProgression || null;
+  const attemptNum = report?.attempt_number || report?.attemptNumber || nested?.attempt_number || nested?.attemptNumber || 1;
+  const attemptLabel = report?.attemptLabel || nested?.attemptLabel || `Attempt ${attemptNum}`;
+  const progression = report?.attemptProgression || nested?.attemptProgression || null;
   const deltaFromA1 = progression?.deltaFromA1 ?? 0;
   const deltaFromPrev = progression?.deltaFromPrevious ?? 0;
   const isMultiAttempt = attemptNum > 1 && progression;
 
-  // Extract answers array
-  const rawAnswers = Array.isArray(report?.answers) ? report.answers : [];
+  // Extract answers array: prioritize authentic answers array from either level
+  const rawAnswers = (Array.isArray(report?.answers) && report.answers.length > 0)
+    ? report.answers
+    : (Array.isArray(nested?.answers) && nested.answers.length > 0 ? nested.answers : []);
+
   const answers = rawAnswers.length > 0 ? rawAnswers : [
     {
-      question: report?.title || 'Technical Interview Question',
+      question: report?.title || nested?.title || 'Technical Interview Question',
       answerText: '',
       evaluation: {
-        overallScore: report?.overallScore ?? 0,
+        overallScore: finalScore,
         metrics: metrics,
         explainableRubric: null,
         evidenceDossier: null,
@@ -48,6 +65,17 @@ export function renderFeedbackReport(container, report, onReturnHome, onRetakeIn
       }
     }
   ];
+
+  // Assign normalized properties to report object
+  report.answers = answers;
+  report.metrics = metrics;
+  report.attemptProgression = progression;
+  report.topicBreakdown = report.topicBreakdown || nested.topicBreakdown || null;
+  report.learningPlan = (Array.isArray(report.learningPlan) && report.learningPlan.length > 0)
+    ? report.learningPlan
+    : (Array.isArray(nested.learningPlan) ? nested.learningPlan : []);
+  report.feedbackSummary = report.feedbackSummary || nested.feedbackSummary || '';
+  report.proctoring = report.proctoring || nested.proctoring || null;
 
   // Authentic Audio Recording verification:
   // Only accept non-empty string URLs starting with http, https, blob, or data
@@ -328,7 +356,7 @@ export function renderFeedbackReport(container, report, onReturnHome, onRetakeIn
           <div>
             <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
               <span class="badge" style="background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(2,132,199,0.25)); border: 1.5px solid var(--secondary); color: #fff; font-weight: 800; font-size: 0.78rem;">
-                Attempt #${attemptLabel} ${deltaFromA1 !== 0 ? (deltaFromA1 > 0 ? `(+${deltaFromA1}% from A1)` : `(${deltaFromA1}% from A1)`) : ''}
+                Attempt ${attemptNum} ${deltaFromA1 !== 0 ? (deltaFromA1 > 0 ? `(+${deltaFromA1}% from Attempt 1)` : `(${deltaFromA1}% from Attempt 1)`) : ''}
               </span>
               <span class="badge badge-emerald">InterviewIQ Verified Audit</span>
               <span class="badge badge-purple">${report.category || 'Technical'} Track</span>
@@ -488,14 +516,14 @@ export function renderFeedbackReport(container, report, onReturnHome, onRetakeIn
               <div>
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
                   <span class="badge" style="background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); color: #fff; font-weight: 800;">
-                    Attempt #${progression.attemptLabel || attemptLabel}
+                    Attempt ${attemptNum}
                   </span>
                   <span class="badge" style="background: ${progression.scenario === 'C' ? 'rgba(16,185,129,0.2)' : 'rgba(56,189,248,0.2)'}; color: ${progression.scenario === 'C' ? '#34d399' : '#38bdf8'}; font-weight: 700;">
                     Scenario ${progression.scenario}: ${progression.headline}
                   </span>
                   ${isMultiAttempt && deltaFromA1 !== 0 ? `
                     <span class="badge" style="background: ${deltaFromA1 > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}; color: ${deltaFromA1 > 0 ? '#34d399' : '#ef4444'}; font-weight: 800;">
-                      ${deltaFromA1 > 0 ? `▲ +${deltaFromA1}%` : `▼ ${deltaFromA1}%`} vs A1 Baseline
+                      ${deltaFromA1 > 0 ? `▲ +${deltaFromA1}%` : `▼ ${deltaFromA1}%`} vs Attempt 1 Baseline
                     </span>
                   ` : ''}
                 </div>
@@ -517,13 +545,13 @@ export function renderFeedbackReport(container, report, onReturnHome, onRetakeIn
 
             <!-- Side-by-Side Comparison if multi-attempt -->
             ${isMultiAttempt ? `
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08);">
+              <div style="grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08); display: grid;">
                 <div style="background: rgba(0,0,0,0.25); padding: 0.85rem 1.1rem; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.05);">
                   <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Score Progression</div>
                   <div style="display: flex; align-items: baseline; gap: 0.6rem; margin-top: 0.25rem;">
-                    <span style="font-size: 1.4rem; font-weight: 800; color: #94a3b8;">A1: ${progression.a1Score}%</span>
+                    <span style="font-size: 1.4rem; font-weight: 800; color: #94a3b8;">Attempt 1: ${progression.a1Score}%</span>
                     <span style="font-size: 1.2rem; color: var(--text-muted);">→</span>
-                    <span style="font-size: 1.6rem; font-weight: 800; color: #34d399;">${attemptLabel}: ${report.overallScore}%</span>
+                    <span style="font-size: 1.6rem; font-weight: 800; color: #34d399;">Attempt ${attemptNum}: ${report.overallScore}%</span>
                   </div>
                 </div>
 
@@ -736,9 +764,21 @@ export function renderFeedbackReport(container, report, onReturnHome, onRetakeIn
       retakeBtn.addEventListener('click', () => {
         if (onRetakeInterview) {
           onRetakeInterview({
+            parentAttemptId: report.id,
+            parent_attempt_id: report.id,
+            attemptNumber: (report.attempt_number || report.attemptNumber || 1) + 1,
             role: report.role || report.targetRole,
+            customRoleTitle: report.customRoleTitle || report.customRoleName || '',
             level: report.level,
-            category: report.category
+            category: report.category,
+            mode: report.mode,
+            timerMinutes: report.timerMinutes || report.durationMinutes,
+            durationMinutes: report.durationMinutes || report.timerMinutes,
+            projectName: report.projectName,
+            questionSource: report.questionSource,
+            resumeSkills: report.resumeSkills,
+            resumeProjects: report.resumeProjects,
+            persona: report.persona
           });
         } else if (onReturnHome) {
           onReturnHome();

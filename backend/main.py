@@ -901,7 +901,18 @@ def create_interview_session(
     role = interview_data.get("role") or "Software Developer"
     level = interview_data.get("level") or "Mid Level"
     category = interview_data.get("category") or role
-    overall_score = int(interview_data.get("overallScore") or 75)
+    raw_score = interview_data.get("overallScore")
+    if raw_score is None:
+        raw_score = interview_data.get("overall_score")
+    if raw_score is None and isinstance(interview_data.get("report"), dict):
+        raw_score = interview_data["report"].get("overallScore") if interview_data["report"].get("overallScore") is not None else interview_data["report"].get("overall_score")
+    if raw_score is not None:
+        try:
+            overall_score = int(round(float(raw_score)))
+        except (ValueError, TypeError):
+            overall_score = 0
+    else:
+        overall_score = 0
 
     # 1. Record Question History for Deduplication
     questions_list = interview_data.get("questions") or []
@@ -981,6 +992,10 @@ def create_interview_session(
     interview_data["attempt_number"] = next_attempt_num
     interview_data["attemptNumber"] = next_attempt_num
     interview_data["attemptLabel"] = f"A{next_attempt_num}"
+    if "parent_attempt_id" in interview_data or "parentAttemptId" in interview_data:
+        p_id = interview_data.get("parent_attempt_id") or interview_data.get("parentAttemptId")
+        interview_data["parent_attempt_id"] = p_id
+        interview_data["parentAttemptId"] = p_id
     interview_data["topicBreakdown"] = topic_eval
     interview_data["topicScores"] = topic_scores
     interview_data["weaknesses"] = weaknesses
@@ -1049,6 +1064,28 @@ def get_role_attempts(
     user_id = current_user["id"]
     attempts = db.get_candidate_attempts_for_role(user_id=user_id, role=role_name)
     return {"success": True, "role": role_name, "attempts": attempts}
+
+
+@app.get("/api/interviews/{interview_id}")
+def get_single_interview(
+    interview_id: str,
+    current_user: Dict[str, Any] = Depends(sec.get_current_user)
+):
+    """
+    Protected endpoint: Retrieves a specific interview session.
+    Candidate can only access their own sessions; Mentors and Admins can view any.
+    """
+    inv = db.get_interview_by_id(interview_id)
+    if not inv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interview session not found.")
+
+    if current_user.get("role") != "Administrator" and current_user.get("role") != "Mentor" and inv.get("user_id") != current_user["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You cannot view another candidate's interview session."
+        )
+
+    return {"success": True, "interview": inv}
 
 
 @app.delete("/api/interviews/{interview_id}")

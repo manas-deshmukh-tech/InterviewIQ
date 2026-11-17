@@ -443,9 +443,27 @@ export const interviewStore = {
         if (json.success && Array.isArray(json.interviews)) {
           const currentAll = this.getAll();
           const backendIds = new Set(json.interviews.map(i => i.id));
+          // Normalize interviews to ensure both overallScore and overall_score are identical numbers
+          const normalizedBackend = json.interviews.map(inv => {
+            const nested = (inv.report && typeof inv.report === 'object') ? inv.report : {};
+            let score = null;
+            if (typeof inv.overallScore === 'number' && Number.isFinite(inv.overallScore)) score = Math.round(inv.overallScore);
+            else if (typeof nested.overallScore === 'number' && Number.isFinite(nested.overallScore)) score = Math.round(nested.overallScore);
+            else if (typeof inv.overall_score === 'number' && Number.isFinite(inv.overall_score)) score = Math.round(inv.overall_score);
+            else if (typeof nested.overall_score === 'number' && Number.isFinite(nested.overall_score)) score = Math.round(nested.overall_score);
+            else score = 0;
+
+            return {
+              ...nested,
+              ...inv,
+              overallScore: score,
+              overall_score: score
+            };
+          });
+
           // Preserve local records that might not yet be synced
           const remainingLocal = currentAll.filter(i => !backendIds.has(i.id) && (!userId || i.userId !== userId));
-          const merged = [...json.interviews, ...remainingLocal];
+          const merged = [...normalizedBackend, ...remainingLocal];
           localStorage.setItem(STORAGE_INTERVIEWS, JSON.stringify(merged));
           return this.getUserInterviews(userId);
         }
@@ -454,6 +472,24 @@ export const interviewStore = {
       console.info('Backend interview sync active with local cache:', e.message);
     }
     return this.getUserInterviews(userId);
+  },
+
+  async getInterviewById(interviewId) {
+    if (!interviewId) return null;
+    const all = this.getAll();
+    const found = all.find(i => String(i.id) === String(interviewId));
+    if (found) return found;
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE}/interviews/${encodeURIComponent(interviewId)}`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.interview) {
+          return json.interview;
+        }
+      }
+    } catch (e) {}
+    return null;
   },
 
   saveInterview(interviewData) {
