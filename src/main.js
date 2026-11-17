@@ -1,4 +1,4 @@
-import { authState } from './modules/auth.js';
+import { authState, syncWithPythonBackend } from './modules/auth.js';
 import { renderAuthModal } from './modules/authModal.js';
 import { renderEditProfileModal } from './modules/editProfileModal.js';
 import { renderInterviewSetup } from './modules/interviewSetup.js';
@@ -7,6 +7,7 @@ import { renderFeedbackReport } from './modules/feedbackReport.js';
 import { renderCandidateDashboard } from './modules/candidateDashboard.js';
 import { renderMentorDashboard, renderAdminDashboard } from './modules/roleDashboards.js';
 import { renderDemoInterview } from './modules/demoInterview.js';
+import { renderAppLayout } from './modules/appLayout.js';
 import { interviewStore } from './modules/auth.js';
 
 // Application State: If no user is logged in, show the landing first page
@@ -22,6 +23,7 @@ if (initialUser && initialUser.name === 'Alex Rivera') {
 const state = {
   currentUser: initialUser,
   currentView: initialUser ? 'dashboard' : 'landing', // 'landing' | 'demo' | 'dashboard' | 'setup' | 'active_interview' | 'feedback_report'
+  activeNavTab: 'dashboard', // 'dashboard' | 'start_interview' | 'my_interviews' | 'practice_learn' | 'my_progress'
   activeSetupConfig: null,
   activeReport: null
 };
@@ -65,10 +67,20 @@ function updateHeader() {
     `;
     userSection.querySelector('#btn-theme-toggle').addEventListener('click', toggleTheme);
     userSection.querySelector('#btn-header-login').addEventListener('click', () => {
-      renderAuthModal('login', (u) => { state.currentUser = u; renderApp(); });
+      renderAuthModal('login', (u) => { 
+        state.currentUser = u; 
+        state.currentView = 'dashboard';
+        state.activeNavTab = 'dashboard';
+        renderApp(); 
+      });
     });
     userSection.querySelector('#btn-header-register').addEventListener('click', () => {
-      renderAuthModal('signup', (u) => { state.currentUser = u; renderApp(); });
+      renderAuthModal('signup', (u) => { 
+        state.currentUser = u; 
+        state.currentView = 'dashboard';
+        state.activeNavTab = 'dashboard';
+        renderApp(); 
+      });
     });
     return;
   }
@@ -79,17 +91,17 @@ function updateHeader() {
     </button>
     <div class="user-menu-wrapper" id="user-menu-wrapper">
       <button type="button" class="user-badge-btn" id="user-menu-toggle" aria-expanded="false" aria-haspopup="true">
-        <img src="${user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}" alt="${user.name}" class="user-avatar-sm" />
-        <div style="line-height: 1.1; text-align: left;">
-          <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-main);">${user.name}</div>
-          <span class="role-pill ${user.role}">${user.role}</span>
+        <img src="${user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}" alt="${user.name || 'User'}" class="user-avatar-sm" />
+        <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; justify-content: center;">
+          <div style="font-weight: 700; font-size: 0.92rem; color: var(--text-main); line-height: 1.2; white-space: nowrap;">${user.name || (user.email ? user.email.split('@')[0] : 'Candidate')}</div>
+          <span class="role-pill ${user.role || 'Candidate'}" style="font-size: 0.63rem; font-weight: 700; padding: 0.08rem 0.42rem; letter-spacing: 0.05em; margin-top: 2px; line-height: 1.2; border-radius: 9999px;">${user.role || 'Candidate'}</span>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 0.25rem; color: var(--text-muted);"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </button>
 
       <div class="user-dropdown-menu" id="user-dropdown-menu" style="display: none;">
         <div class="user-dropdown-header">
-          <div class="user-name">${user.name}</div>
+          <div class="user-name">${user.name || (user.email ? user.email.split('@')[0] : 'Candidate')}</div>
           <div class="user-email">${user.email}</div>
         </div>
         <button type="button" class="dropdown-item" id="btn-edit-profile">
@@ -164,12 +176,6 @@ export function renderApp() {
     appContainer.innerHTML = `
       <div class="landing-page-container" style="position: relative; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); height: 100%; min-height: 0; background: #060913; background-image: radial-gradient(circle at 65% 25%, #0d2859 0%, #08142c 45%, #050814 100%); color: #ffffff; padding: 0.75rem 2.5rem 0 2.5rem; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; overflow: hidden;">
         
-        <!-- Decorative Ambient Sparkle Elements -->
-        <span style="position: absolute; top: 15px; right: 35px; color: #94a3b8; opacity: 0.45; font-size: 1.1rem; pointer-events: none;">✦</span>
-        <span style="position: absolute; top: 38%; left: 47%; color: #94a3b8; opacity: 0.4; font-size: 0.95rem; pointer-events: none;">✦</span>
-        <span style="position: absolute; bottom: 70px; left: 30px; color: #94a3b8; opacity: 0.4; font-size: 1.1rem; pointer-events: none;">✦</span>
-        <span style="position: absolute; bottom: 45px; right: 30px; color: #94a3b8; opacity: 0.5; font-size: 1.3rem; pointer-events: none;">✦</span>
-
         <!-- UPPER HERO SECTION -->
         <div style="max-width: 1360px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 1.25fr; gap: 1.75rem; align-items: center; position: relative; z-index: 2; flex-shrink: 0;">
           
@@ -463,6 +469,7 @@ export function renderApp() {
       renderAuthModal('signup', (u) => { 
         state.currentUser = u; 
         state.currentView = 'dashboard';
+        state.activeNavTab = 'dashboard';
         renderApp(); 
       });
     };
@@ -478,8 +485,8 @@ export function renderApp() {
 
   // Handle demo interview (no login required)
   if (state.currentView === 'demo') {
-    document.body.classList.remove('landing-no-scroll');
-    document.documentElement.classList.remove('landing-no-scroll');
+    document.body.classList.remove('landing-no-scroll', 'logged-in-app');
+    document.documentElement.classList.remove('landing-no-scroll', 'logged-in-app');
     renderDemoInterview(
       appContainer,
       // onSignUp: open the signup modal
@@ -487,6 +494,7 @@ export function renderApp() {
         renderAuthModal('signup', (u) => {
           state.currentUser = u;
           state.currentView = 'dashboard';
+          state.activeNavTab = 'dashboard';
           renderApp();
         });
       },
@@ -500,34 +508,52 @@ export function renderApp() {
   }
 
   // Route depending on view
-  if (state.currentView === 'dashboard') {
-    if (state.currentUser.role === 'Candidate') {
-      renderCandidateDashboard(
-        appContainer,
-        state.currentUser,
-        () => { state.currentView = 'setup'; renderApp(); },
-        (inv) => { state.activeReport = inv; state.currentView = 'feedback_report'; renderApp(); }
-      );
-    } else if (state.currentUser.role === 'Mentor') {
-      renderMentorDashboard(
-        appContainer,
-        state.currentUser,
-        (inv) => { state.activeReport = inv; state.currentView = 'feedback_report'; renderApp(); }
-      );
-    } else if (state.currentUser.role === 'Administrator') {
-      renderAdminDashboard(appContainer, state.currentUser);
-    }
-  } else if (state.currentView === 'setup') {
-    renderInterviewSetup(
-      appContainer,
-      state.currentUser,
-      (setupConfig) => {
+  if (state.currentUser && (state.currentView === 'dashboard' || state.currentView === 'setup')) {
+    document.body.classList.add('logged-in-app');
+    document.documentElement.classList.add('logged-in-app');
+    document.body.classList.remove('landing-no-scroll', 'interview-no-scroll');
+    document.documentElement.classList.remove('landing-no-scroll', 'interview-no-scroll');
+
+    renderAppLayout(appContainer, {
+      currentUser: state.currentUser,
+      activeTab: state.activeNavTab || 'dashboard',
+      currentTheme: currentTheme,
+      initialSetupConfig: state.activeSetupConfig,
+      onTabChange: (newTab) => {
+        state.activeNavTab = newTab;
+      },
+      onStartActiveInterview: (setupConfig) => {
         state.activeSetupConfig = setupConfig;
         state.currentView = 'active_interview';
         renderApp();
+      },
+      onViewReport: (inv) => {
+        state.activeReport = inv;
+        state.currentView = 'feedback_report';
+        renderApp();
+      },
+      onSignOut: () => {
+        authState.logout();
+        state.currentUser = null;
+        state.activeNavTab = 'dashboard';
+        state.currentView = 'landing';
+        renderApp();
+      },
+      onEditProfile: () => {
+        renderEditProfileModal(state.currentUser, (updatedUser) => {
+          state.currentUser = updatedUser;
+          renderApp();
+        });
+      },
+      onToggleTheme: () => {
+        toggleTheme();
+        renderApp();
       }
-    );
+    });
+    return;
   } else if (state.currentView === 'active_interview') {
+    document.body.classList.remove('logged-in-app');
+    document.documentElement.classList.remove('logged-in-app');
     renderActiveInterview(
       appContainer,
       state.activeSetupConfig,
@@ -541,20 +567,49 @@ export function renderApp() {
       }
     );
   } else if (state.currentView === 'feedback_report') {
+    document.body.classList.remove('logged-in-app');
+    document.documentElement.classList.remove('logged-in-app');
     renderFeedbackReport(
       appContainer,
       state.activeReport,
-      () => { state.currentView = 'dashboard'; renderApp(); }
+      () => {
+        state.currentView = 'dashboard';
+        state.activeNavTab = 'my_interviews';
+        renderApp();
+      },
+      (retryConfig) => {
+        state.activeSetupConfig = retryConfig;
+        state.activeNavTab = 'start_interview';
+        state.currentView = 'dashboard';
+        renderApp();
+      }
     );
+  } else {
+    document.body.classList.remove('logged-in-app');
+    document.documentElement.classList.remove('logged-in-app');
   }
 }
 
 // Global Nav Handlers
 brandLink.addEventListener('click', (e) => {
   e.preventDefault();
+  document.body.classList.remove('interview-no-scroll', 'logged-in-app');
+  document.documentElement.classList.remove('interview-no-scroll', 'logged-in-app');
   state.currentView = state.currentUser ? 'dashboard' : 'landing';
+  state.activeNavTab = 'dashboard';
   renderApp();
 });
 
 // Initial boot
 renderApp();
+
+// Sync logged-in user profile from MySQL on startup
+if (state.currentUser) {
+  syncWithPythonBackend().then(() => {
+    const refreshed = authState.getCurrentUser();
+    if (refreshed) {
+      state.currentUser = refreshed;
+      updateHeader();
+    }
+  }).catch(() => {});
+}
