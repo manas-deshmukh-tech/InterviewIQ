@@ -4,6 +4,7 @@ dist-ssr
 *.local
 .DS_Store
 .vscode
+
 backend/venv/
 **/__pycache__/
 *.pyc
@@ -25,6 +26,3 @@ backend/test_temp.db
 /img1.jpg
 /imgl.jpg
 /interviewiq_transparent_symbols/
-
-
-
