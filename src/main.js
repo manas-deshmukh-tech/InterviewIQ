@@ -33,6 +33,9 @@ const appContainer = document.getElementById('app');
 const userSection = document.getElementById('header-user-section');
 const brandLink = document.getElementById('brand-link');
 
+// Module-level cleanup hook for landing page simulation & observers
+let activeLandingCleanup = null;
+
 // Theme Management
 const STORAGE_THEME = 'ai_interview_theme';
 function initTheme() {
@@ -159,8 +162,267 @@ function updateHeader() {
   }
 }
 
+// ==========================================================
+// LANDING PAGE DEMO SIMULATION & INTERSECTION OBSERVER
+// ==========================================================
+const HERO_ROTATING_PHRASES = [
+  'Help You Improve.',
+  'Explain Every Score.',
+  'Build Your Confidence.',
+  'Track Your Progress.'
+];
+
+const DEMO_SCENARIOS = [
+  {
+    directness: 82,
+    technical: 84,
+    confidence: 88,
+    body: 82,
+    status: 'Listening to response...',
+    feedback: 'Clear structure articulating distributed caching trade-offs.'
+  },
+  {
+    directness: 86,
+    technical: 89,
+    confidence: 92,
+    body: 85,
+    status: 'Analyzing communication...',
+    feedback: 'High precision on fault tolerance and replication latency.'
+  },
+  {
+    directness: 91,
+    technical: 94,
+    confidence: 93,
+    body: 89,
+    status: 'Evaluating technical clarity...',
+    feedback: 'Strong structured STAR answer with quantifiable performance impact.'
+  },
+  {
+    directness: 84,
+    technical: 86,
+    confidence: 85,
+    body: 84,
+    status: 'Updating interview insights...',
+    feedback: 'Steady speaking pace of 138 WPM; filler words well controlled (<2%).'
+  },
+  {
+    directness: 88,
+    technical: 91,
+    confidence: 89,
+    body: 87,
+    status: 'Feedback ready.',
+    feedback: 'Tailored rubrics ready with concrete recommendations for Senior role.'
+  }
+];
+
+function calcOverallScore(d, t, c, b) {
+  // Balanced content-first weighting: Tech 35%, Directness 25%, Confidence 20%, Body 20%
+  return Math.round(0.35 * t + 0.25 * d + 0.20 * c + 0.20 * b);
+}
+
+function getPerformanceLabel(score) {
+  const s = Math.round(Number(score) || 0);
+  if (s >= 90) return 'Excellent Performance';
+  if (s >= 80) return 'Strong Performance';
+  if (s >= 70) return 'Good Performance';
+  if (s >= 60) return 'Developing Performance';
+  return 'Needs Improvement';
+}
+
+function initLandingController(container) {
+  let scenarioIndex = 0;
+  let intervalId = null;
+  let currentRaf = null;
+
+  // DOM Elements
+  const statusText = container.querySelector('#hud-status-text');
+  const scoreNum = container.querySelector('#hud-overall-score-num');
+  const scoreRing = container.querySelector('#hud-score-ring');
+  const perfLabel = container.querySelector('#hud-performance-label');
+
+  const dirVal = container.querySelector('#hud-directness-val');
+  const dirBar = container.querySelector('#hud-directness-bar');
+  const techVal = container.querySelector('#hud-technical-val');
+  const techBar = container.querySelector('#hud-technical-bar');
+  const confVal = container.querySelector('#hud-confidence-val');
+  const confBar = container.querySelector('#hud-confidence-bar');
+  const bodyVal = container.querySelector('#hud-body-val');
+  const bodyBar = container.querySelector('#hud-body-bar');
+
+  const feedbackPill = container.querySelector('#landing-feedback-pill');
+  const feedbackText = container.querySelector('#landing-feedback-pill-text');
+
+  // Initial State Tracking
+  let curD = DEMO_SCENARIOS[0].directness;
+  let curT = DEMO_SCENARIOS[0].technical;
+  let curC = DEMO_SCENARIOS[0].confidence;
+  let curB = DEMO_SCENARIOS[0].body;
+  let curOverall = calcOverallScore(curD, curT, curC, curB);
+
+  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function applyValues(d, t, c, b, overall) {
+    if (dirVal) dirVal.textContent = `${d} / 100`;
+    if (dirBar) dirBar.style.width = `${d}%`;
+    if (techVal) techVal.textContent = `${t} / 100`;
+    if (techBar) techBar.style.width = `${t}%`;
+    if (confVal) confVal.textContent = `${c} / 100`;
+    if (confBar) confBar.style.width = `${c}%`;
+    if (bodyVal) bodyVal.textContent = `${b} / 100`;
+    if (bodyBar) bodyBar.style.width = `${b}%`;
+
+    if (scoreNum) scoreNum.textContent = String(overall);
+    if (perfLabel) perfLabel.textContent = getPerformanceLabel(overall);
+    if (scoreRing) {
+      scoreRing.style.background = `conic-gradient(#06b6d4 0% ${overall}%, rgba(255,255,255,0.15) ${overall}% 100%)`;
+    }
+  }
+
+  function transitionToScenario(target) {
+    const targetOverall = calcOverallScore(target.directness, target.technical, target.confidence, target.body);
+
+    if (statusText) {
+      statusText.style.opacity = '0';
+      setTimeout(() => {
+        statusText.textContent = target.status;
+        statusText.style.opacity = '1';
+      }, 180);
+    }
+
+    if (feedbackText && feedbackPill) {
+      feedbackPill.classList.add('pill-update-pulse');
+      feedbackText.style.opacity = '0';
+      setTimeout(() => {
+        feedbackText.textContent = target.feedback;
+        feedbackText.style.opacity = '1';
+      }, 180);
+      setTimeout(() => {
+        feedbackPill.classList.remove('pill-update-pulse');
+      }, 600);
+    }
+
+    if (reducedMotion) {
+      curD = target.directness;
+      curT = target.technical;
+      curC = target.confidence;
+      curB = target.body;
+      curOverall = targetOverall;
+      applyValues(curD, curT, curC, curB, curOverall);
+      return;
+    }
+
+    const startD = curD;
+    const startT = curT;
+    const startC = curC;
+    const startB = curB;
+    const startOverall = curOverall;
+
+    const duration = 750; // ms
+    const startTime = performance.now();
+
+    function animateStep(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      curD = Math.round(startD + (target.directness - startD) * ease);
+      curT = Math.round(startT + (target.technical - startT) * ease);
+      curC = Math.round(startC + (target.confidence - startC) * ease);
+      curB = Math.round(startB + (target.body - startB) * ease);
+      curOverall = Math.round(startOverall + (targetOverall - startOverall) * ease);
+
+      applyValues(curD, curT, curC, curB, curOverall);
+
+      if (progress < 1) {
+        currentRaf = requestAnimationFrame(animateStep);
+      }
+    }
+
+    if (currentRaf) cancelAnimationFrame(currentRaf);
+    currentRaf = requestAnimationFrame(animateStep);
+  }
+
+  // Initialize display
+  applyValues(curD, curT, curC, curB, curOverall);
+
+  // Set up controlled loop interval (transitions every 4.8 seconds)
+  intervalId = setInterval(() => {
+    scenarioIndex = (scenarioIndex + 1) % DEMO_SCENARIOS.length;
+    transitionToScenario(DEMO_SCENARIOS[scenarioIndex]);
+  }, 4800);
+
+  // Headline Rotating Second-Line Loop (transitions every 3.5 seconds)
+  let headlineIntervalId = null;
+  const rotatingPhraseEl = container.querySelector('#hero-rotating-phrase');
+  let phraseIndex = 0;
+
+  if (rotatingPhraseEl) {
+    headlineIntervalId = setInterval(() => {
+      if (reducedMotion) {
+        phraseIndex = (phraseIndex + 1) % HERO_ROTATING_PHRASES.length;
+        rotatingPhraseEl.textContent = HERO_ROTATING_PHRASES[phraseIndex];
+        return;
+      }
+
+      // 1. Smooth fade-out and slide upward
+      rotatingPhraseEl.classList.remove('phrase-enter-active');
+      rotatingPhraseEl.classList.add('phrase-exit');
+
+      setTimeout(() => {
+        // 2. Advance to next phrase in cycle
+        phraseIndex = (phraseIndex + 1) % HERO_ROTATING_PHRASES.length;
+        rotatingPhraseEl.textContent = HERO_ROTATING_PHRASES[phraseIndex];
+
+        // 3. Prep incoming position slightly below baseline with transitions off
+        rotatingPhraseEl.classList.remove('phrase-exit');
+        rotatingPhraseEl.classList.add('phrase-enter-prep');
+
+        // Force browser layout reflow
+        void rotatingPhraseEl.offsetWidth;
+
+        // 4. Smooth fade-in and slide upward into baseline position
+        rotatingPhraseEl.classList.remove('phrase-enter-prep');
+        rotatingPhraseEl.classList.add('phrase-enter-active');
+      }, 380);
+    }, 3500);
+  }
+
+  // IntersectionObserver for feature cards and sections
+  let observer = null;
+  const revealElements = container.querySelectorAll('.landing-reveal-init');
+  if ('IntersectionObserver' in window && !reducedMotion) {
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('landing-reveal-visible');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    revealElements.forEach((el) => observer.observe(el));
+  } else {
+    // Fallback: show immediately
+    revealElements.forEach((el) => el.classList.add('landing-reveal-visible'));
+  }
+
+  // Return cleanup closure
+  return function cleanup() {
+    if (intervalId) clearInterval(intervalId);
+    if (headlineIntervalId) clearInterval(headlineIntervalId);
+    if (currentRaf) cancelAnimationFrame(currentRaf);
+    if (observer) observer.disconnect();
+  };
+}
+
 export function renderApp() {
   updateHeader();
+
+  // Clean up any existing landing timers/observers before switching views
+  if (typeof activeLandingCleanup === 'function') {
+    activeLandingCleanup();
+    activeLandingCleanup = null;
+  }
 
   const isLanding = (!state.currentUser && state.currentView !== 'demo') || state.currentView === 'landing';
   if (isLanding) {
@@ -172,146 +434,162 @@ export function renderApp() {
   }
 
   if (isLanding) {
-    // Show Welcome Landing that exactly matches the format in the user's reference image
+    // Show Welcome Landing with animated components, WebP assets, and dynamic metrics
     appContainer.innerHTML = `
-      <div class="landing-page-container" style="position: relative; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); height: 100%; min-height: 0; background: #060913; background-image: radial-gradient(circle at 65% 25%, #0d2859 0%, #08142c 45%, #050814 100%); color: #ffffff; padding: 0.75rem 2.5rem 0 2.5rem; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; overflow: hidden;">
+      <div class="landing-page-container" style="position: relative; width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); height: 100%; min-height: 0; background: #060913; background-image: radial-gradient(circle at 65% 25%, #0d2859 0%, #08142c 45%, #050814 100%); color: #ffffff; padding: 0.75rem 2.5rem 0 2.5rem; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; overflow-x: hidden;">
         
+        <!-- Ambient Background Glow -->
+        <div class="landing-hero-ambient-glow" aria-hidden="true"></div>
+
         <!-- UPPER HERO SECTION -->
-        <div style="max-width: 1360px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 1.25fr; gap: 1.75rem; align-items: center; position: relative; z-index: 2; flex-shrink: 0;">
+        <div class="landing-hero-grid" style="max-width: 1360px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 1.25fr; gap: 1.75rem; align-items: center; position: relative; z-index: 2; flex-shrink: 0;">
           
-          <!-- LEFT COLUMN: Headline, Paragraph, CTAs -->
-          <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; z-index: 10;">
-            <!-- Main Hero Headline -->
-            <h1 class="landing-headline" style="font-size: clamp(2.35rem, 3.4vw, 3.1rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; margin-bottom: 0.65rem;">
-              AI Mock Interviews <br/>
-              That <br/>
-              <span style="background: linear-gradient(135deg, #38bdf8 0%, #818cf8 40%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Explain Every Score</span>
+          <!-- LEFT COLUMN: Headline, Paragraph, CTAs (Staggered Entrance) -->
+          <div class="landing-hero-left" style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; z-index: 10;">
+            <!-- Main Hero Headline with Rotating Animated Second Line -->
+            <h1 class="landing-headline hero-fade-in hero-delay-1" style="font-size: clamp(2.35rem, 3.4vw, 3.1rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; margin-bottom: 0.65rem;">
+              <span class="landing-headline-fixed" style="display: block;">AI Mock Interviews That</span>
+              <span class="landing-headline-rotator" style="display: block; position: relative; min-height: 1.22em; line-height: 1.15; overflow: hidden;">
+                <span id="hero-rotating-phrase" class="hero-rotating-phrase" aria-live="polite">Help You Improve.</span>
+              </span>
             </h1>
 
             <!-- Subtitle -->
-            <p class="landing-subtitle" style="font-size: clamp(0.98rem, 1.22vw, 1.12rem); line-height: 1.48; margin-bottom: 1.25rem; max-width: 520px; font-weight: 400;">
+            <p class="landing-subtitle hero-fade-in hero-delay-2" style="font-size: clamp(0.98rem, 1.22vw, 1.12rem); line-height: 1.48; margin-bottom: 1.25rem; max-width: 520px; font-weight: 400;">
               Practice live voice and video interviews tailored to your role and resume, and see exactly what to improve.
             </p>
 
             <!-- Dual CTA Buttons -->
-            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-              <button type="button" id="landing-demo-btn" class="btn btn-primary" style="background: #0284c7; background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); border: none; color: #ffffff !important; padding: 0.85rem 1.85rem; border-radius: 9999px; font-weight: 600; font-size: 1.02rem; display: inline-flex; align-items: center; gap: 0.55rem; box-shadow: 0 4px 20px rgba(14, 165, 233, 0.4); cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;">
+            <div class="hero-fade-in hero-delay-3" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+              <button type="button" id="landing-demo-btn" class="btn btn-primary" style="background: #0284c7; background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); border: none; color: #ffffff !important; padding: 0.85rem 1.85rem; border-radius: 9999px; font-weight: 600; font-size: 1.02rem; display: inline-flex; align-items: center; gap: 0.55rem; box-shadow: 0 4px 20px rgba(14, 165, 233, 0.4); cursor: pointer;">
                 <span>Try Free Demo</span>
-                <span style="font-size: 1.18rem; line-height: 1;">→</span>
+                <span style="font-size: 1.18rem; line-height: 1;" aria-hidden="true">→</span>
               </button>
 
-              <button type="button" id="landing-account-btn" style="padding: 0.85rem 1.85rem; border-radius: 9999px; font-weight: 600; font-size: 1.02rem; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s ease, border-color 0.2s ease;">
+              <button type="button" id="landing-account-btn" style="padding: 0.85rem 1.85rem; border-radius: 9999px; font-weight: 600; font-size: 1.02rem; cursor: pointer; backdrop-filter: blur(8px);">
                 Create Free Account
               </button>
             </div>
 
           </div>
 
-          <!-- RIGHT COLUMN: Laptop Mockup & Evaluator Woman Picture -->
-          <div style="position: relative; width: 100%; min-height: 235px; display: flex; align-items: center; justify-content: flex-start;">
+          <!-- RIGHT COLUMN: Laptop Mockup & Evaluator Picture -->
+          <div class="landing-hero-right hero-fade-in hero-delay-4" style="position: relative; width: 100%; min-height: 235px; display: flex; align-items: center; justify-content: flex-start;">
             
-            <!-- Radial Glow behind Laptop Mockup -->
-            <div style="position: absolute; left: 0%; top: 5%; width: 360px; height: 210px; background: radial-gradient(circle, rgba(37, 99, 235, 0.45) 0%, rgba(99, 102, 241, 0.2) 50%, transparent 75%); filter: blur(35px); pointer-events: none; z-index: 1;"></div>
-
-            <!-- Laptop Device Mockup with Split Screen (Shifted to Left Side) -->
-            <div style="position: relative; z-index: 3; width: 510px; margin-left: -75px;">
+            <!-- Laptop Device Mockup with Split Screen -->
+            <div class="landing-laptop-wrapper" style="position: relative; z-index: 3; width: 510px; margin-left: -75px;">
               
-              <!-- Laptop Screen -->
+              <!-- Laptop Screen Frame -->
               <div style="background: #111827; border-radius: 14px 14px 0 0; padding: 6px 6px 0 6px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 35px rgba(37, 99, 235, 0.35); border: 1.5px solid #2d3b50; border-bottom: none; position: relative;">
                 
                 <!-- Tiny Top Camera Dot -->
-                <div style="width: 5px; height: 5px; background: #64748b; border-radius: 50%; margin: 0 auto 4px auto;"></div>
+                <div style="width: 5px; height: 5px; background: #64748b; border-radius: 50%; margin: 0 auto 4px auto;" aria-hidden="true"></div>
 
                 <!-- Screen Contents (Left Candidate Video, Right HUD) -->
-                <div style="position: relative; width: 100%; height: 215px; border-radius: 7px 7px 0 0; overflow: hidden; background: #070d1e; display: grid; grid-template-columns: 1fr 1fr;">
+                <div class="landing-laptop-screen-grid" style="position: relative; width: 100%; height: 215px; border-radius: 7px 7px 0 0; overflow: hidden; background: #070d1e; display: grid; grid-template-columns: 1fr 1fr;">
                   
-                  <!-- Left: Candidate Live Feed -->
-                  <div style="position: relative; height: 100%; overflow: hidden; border-right: 1px solid rgba(255,255,255,0.08);">
+                  <!-- Left: Candidate Live Feed (Optimized WebP Asset) -->
+                  <div class="laptop-candidate-feed" style="position: relative; height: 100%; overflow: hidden; border-right: 1px solid rgba(255,255,255,0.08);">
                     <img 
-                      src="/boy-interview.png" 
-                      alt="Candidate practicing interview" 
+                      src="/boy-interview.webp" 
+                      alt="Candidate practicing interview in live AI simulator" 
                       style="width: 100%; height: 100%; object-fit: cover; object-position: center 15%; display: block;" 
                     />
                     
-                    <!-- Live Interview Tag -->
-                    <div style="position: absolute; top: 7px; left: 7px; display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(4px); padding: 3px 9px; border-radius: 9999px; font-size: 0.74rem; color: #f8fafc; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
-                      <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 7px #ef4444;"></span>
+                    <!-- Live Interview Tag + Simulated Waveform -->
+                    <div style="position: absolute; top: 7px; left: 7px; display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(6px); padding: 3px 9px; border-radius: 9999px; font-size: 0.74rem; color: #f8fafc; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.12);">
+                      <span class="live-indicator-dot" aria-hidden="true"></span>
                       <span>Live Interview</span>
+                      <div class="simulated-audio-waveform" title="Illustrative voice activity telemetry" aria-label="Simulated voice telemetry">
+                        <span class="wave-bar wave-1"></span>
+                        <span class="wave-bar wave-2"></span>
+                        <span class="wave-bar wave-3"></span>
+                        <span class="wave-bar wave-4"></span>
+                        <span class="wave-bar wave-5"></span>
+                      </div>
                     </div>
 
                     <!-- Bottom Floating Call Control Buttons -->
-                    <div style="position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(6px); padding: 3px 8px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.15);">
-                      <div style="width: 18px; height: 18px; border-radius: 50%; background: #2563eb; display: flex; align-items: center; justify-content: center; color: white;">
+                    <div style="position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(6px); padding: 3px 8px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.15);" aria-label="In-call controls">
+                      <div style="width: 18px; height: 18px; border-radius: 50%; background: #2563eb; display: flex; align-items: center; justify-content: center; color: white;" title="Microphone Active">
                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
                       </div>
-                      <div style="width: 18px; height: 18px; border-radius: 50%; background: #2563eb; display: flex; align-items: center; justify-content: center; color: white;">
+                      <div style="width: 18px; height: 18px; border-radius: 50%; background: #2563eb; display: flex; align-items: center; justify-content: center; color: white;" title="Camera Active">
                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
                       </div>
-                      <div style="width: 18px; height: 18px; border-radius: 50%; background: #ef4444; display: flex; align-items: center; justify-content: center; color: white;">
+                      <div style="width: 18px; height: 18px; border-radius: 50%; background: #ef4444; display: flex; align-items: center; justify-content: center; color: white;" title="End Interview">
                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path></svg>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Right: AI Analysis HUD Screen -->
+                  <!-- Right: AI Analysis HUD Screen (Dynamic Coordinated Demonstration) -->
                   <div class="laptop-hud-screen" style="background: #091224; padding: 0.75rem 0.85rem; display: flex; flex-direction: column; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 0.45rem;">
-                      <span style="font-size: 0.95rem; color: #38bdf8;">📊</span>
-                      <span style="font-size: 0.92rem; font-weight: 800; color: #ffffff; letter-spacing: -0.01em;">AI Analysis</span>
+                    
+                    <!-- HUD Header with Status Badge -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;">
+                      <div style="display: flex; align-items: center; gap: 0.45rem;">
+                        <span style="font-size: 0.95rem; color: #38bdf8;" aria-hidden="true">📊</span>
+                        <span style="font-size: 0.92rem; font-weight: 800; color: #ffffff; letter-spacing: -0.01em;">AI Analysis</span>
+                      </div>
+                      <div class="hud-status-badge" title="Illustrative demonstration status cycle">
+                        <span class="hud-status-dot" aria-hidden="true"></span>
+                        <span id="hud-status-text">Listening to response...</span>
+                      </div>
                     </div>
 
                     <!-- Overall Score Circle & Text -->
                     <div style="display: flex; align-items: center; gap: 0.65rem; padding: 0.15rem 0;">
-                      <div style="width: 44px; height: 44px; border-radius: 50%; background: conic-gradient(#06b6d4 0% 82%, rgba(255,255,255,0.15) 82% 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(6, 182, 212, 0.45); flex-shrink: 0;">
-                        <div class="laptop-mockup-score-number" style="width: 35px; height: 35px; border-radius: 50%; background: #070e20; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: #ffffff !important;">
-                          82
+                      <div class="score-conic-ring" id="hud-score-ring" style="width: 44px; height: 44px; border-radius: 50%; background: conic-gradient(#06b6d4 0% 84%, rgba(255,255,255,0.15) 84% 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(6, 182, 212, 0.45); flex-shrink: 0;">
+                        <div class="laptop-mockup-score-number" id="hud-overall-score-num" style="width: 35px; height: 35px; border-radius: 50%; background: #070e20; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.08rem; color: #ffffff !important;">
+                          84
                         </div>
                       </div>
                       <div>
                         <div style="font-size: 0.88rem; font-weight: 700; color: #f8fafc; line-height: 1.2;">Overall Score</div>
-                        <div style="font-size: 0.76rem; color: #38bdf8; font-weight: 600;">Good Performance</div>
+                        <div id="hud-performance-label" style="font-size: 0.76rem; color: #38bdf8; font-weight: 600;">Strong Performance</div>
                       </div>
                     </div>
 
-                    <!-- Progress Bars with Larger Text -->
+                    <!-- Bounded Dynamic Progress Bars -->
                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                       <div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.74rem; font-weight: 600; margin-bottom: 2px;">
                           <span style="color: #cbd5e1;">Response Directness</span>
-                          <span style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">81 / 100</span>
+                          <span id="hud-directness-val" style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">82 / 100</span>
                         </div>
                         <div style="height: 4.5px; width: 100%; background: rgba(255,255,255,0.14); border-radius: 3px; overflow: hidden;">
-                          <div style="height: 100%; width: 81%; background: #0284c7; border-radius: 3px;"></div>
+                          <div id="hud-directness-bar" class="hud-metric-fill" style="width: 82%;"></div>
                         </div>
                       </div>
 
                       <div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.74rem; font-weight: 600; margin-bottom: 2px;">
                           <span style="color: #cbd5e1;">Technical Precision</span>
-                          <span style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">83 / 100</span>
+                          <span id="hud-technical-val" style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">84 / 100</span>
                         </div>
                         <div style="height: 4.5px; width: 100%; background: rgba(255,255,255,0.14); border-radius: 3px; overflow: hidden;">
-                          <div style="height: 100%; width: 83%; background: #0284c7; border-radius: 3px;"></div>
+                          <div id="hud-technical-bar" class="hud-metric-fill" style="width: 84%;"></div>
                         </div>
                       </div>
 
                       <div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.74rem; font-weight: 600; margin-bottom: 2px;">
                           <span style="color: #cbd5e1;">Confidence Tone</span>
-                          <span style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">90 / 100</span>
+                          <span id="hud-confidence-val" style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">88 / 100</span>
                         </div>
                         <div style="height: 4.5px; width: 100%; background: rgba(255,255,255,0.14); border-radius: 3px; overflow: hidden;">
-                          <div style="height: 100%; width: 90%; background: #0284c7; border-radius: 3px;"></div>
+                          <div id="hud-confidence-bar" class="hud-metric-fill" style="width: 88%;"></div>
                         </div>
                       </div>
 
                       <div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.74rem; font-weight: 600; margin-bottom: 2px;">
                           <span style="color: #cbd5e1;">Body Language</span>
-                          <span style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">80 / 100</span>
+                          <span id="hud-body-val" style="color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">82 / 100</span>
                         </div>
                         <div style="height: 4.5px; width: 100%; background: rgba(255,255,255,0.14); border-radius: 3px; overflow: hidden;">
-                          <div style="height: 100%; width: 80%; background: #0284c7; border-radius: 3px;"></div>
+                          <div id="hud-body-bar" class="hud-metric-fill" style="width: 82%;"></div>
                         </div>
                       </div>
                     </div>
@@ -329,15 +607,15 @@ export function renderApp() {
             </div>
 
             <!-- Floating Translucent Feedback Card with Lightbulb Icon (Overlapping Laptop & Evaluator) -->
-            <div class="landing-feedback-pill" style="position: absolute; right: 150px; top: 18px; z-index: 6; background: rgba(79, 70, 229, 0.88); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 10px; padding: 0.45rem 0.7rem; display: flex; align-items: center; gap: 0.45rem; box-shadow: 0 8px 18px rgba(79, 70, 229, 0.45); max-width: 155px;">
-              <span style="font-size: 1rem;">💡</span>
-              <span class="landing-feedback-pill-text" style="font-size: 0.62rem; font-weight: 700; color: #ffffff !important; line-height: 1.25;">
-                Practice voice video tailored feedback with actionable advice
+            <div class="landing-feedback-pill" id="landing-feedback-pill" style="position: absolute; right: 150px; top: 18px; z-index: 6; background: rgba(79, 70, 229, 0.88); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 10px; padding: 0.45rem 0.7rem; display: flex; align-items: center; gap: 0.45rem; box-shadow: 0 8px 18px rgba(79, 70, 229, 0.45); max-width: 175px;">
+              <span style="font-size: 1rem;" aria-hidden="true">💡</span>
+              <span class="landing-feedback-pill-text" id="landing-feedback-pill-text" style="font-size: 0.62rem; font-weight: 700; color: #ffffff !important; line-height: 1.25;">
+                Clear structure articulating distributed caching trade-offs.
               </span>
             </div>
 
-            <!-- Evaluator Asian Business Woman Photo on Right Edge -->
-            <div style="position: absolute; right: -15px; top: -10px; width: 250px; height: 285px; pointer-events: none; z-index: 4; overflow: hidden; -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-composite: intersect;">
+            <!-- Evaluator Asian Business Woman Photo on Right Edge (Upper Hero Visual) -->
+            <div class="landing-evaluator-portrait" style="position: absolute; right: -15px; top: -10px; width: 250px; height: 285px; pointer-events: none; z-index: 4; overflow: hidden; -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-composite: intersect;">
               <img 
                 src="/girl-interview.png" 
                 alt="AI Evaluator conducting mock interview" 
@@ -349,11 +627,11 @@ export function renderApp() {
 
         </div>
 
-        <!-- LOWER SECTION: "Why Choose InterviewIQ" (Stretched Full-Bleed Till End on Right & Left) -->
+        <!-- LOWER SECTION: "Why Choose InterviewIQ" (Stretched Full-Bleed Frame) -->
         <div style="width: 100vw; margin-left: -2.5rem; margin-right: -2.5rem; z-index: 2; flex-shrink: 0; box-sizing: border-box;">
           
           <div style="padding: 0 2.5rem 0.4rem 2.5rem;">
-            <h2 class="landing-feature-heading" style="font-size: clamp(1.55rem, 2.2vw, 2.1rem); font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.35rem; text-align: left;">
+            <h2 class="landing-feature-heading landing-reveal-init" style="font-size: clamp(1.55rem, 2.2vw, 2.1rem); font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.35rem; text-align: left;">
               Why Choose InterviewIQ
             </h2>
           </div>
@@ -370,11 +648,15 @@ export function renderApp() {
               />
             </div>
 
-            <!-- Column 2: Card 1 - Real-Time Voice & Video Simulation -->
-            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
-              <div style="margin-bottom: 0.45rem; font-size: 1.45rem; display: flex; align-items: center; gap: 0.35rem; height: 28px;">
-                <span style="color: #38bdf8;">🎙️</span>
-                <span style="color: #a855f7; font-size: 1.25rem;">▶️</span>
+            <!-- Column 2: Card 1 - Real-Time Voice & Video Simulation (Clean Inline SVG) -->
+            <div class="landing-feature-card landing-reveal-init" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div class="feature-card-icon-bubble" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="22"></line>
+                  <line x1="8" y1="22" x2="16" y2="22"></line>
+                </svg>
               </div>
               <h3 style="font-size: clamp(0.92rem, 1.05vw, 1.02rem); font-weight: 700; line-height: 1.28; margin-bottom: 0.35rem;">
                 Real-Time Voice & Video Simulation
@@ -384,25 +666,36 @@ export function renderApp() {
               </p>
             </div>
 
-            <!-- Column 3: Card 2 - Precise Identification of What Needs Improvement -->
-            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
-              <div style="margin-bottom: 0.45rem; font-size: 1.45rem; display: flex; align-items: center; gap: 0.35rem; height: 28px;">
-                <span style="color: #38bdf8;">📍</span>
-                <span style="color: #60a5fa; font-size: 1.3rem;">🔍</span>
+            <!-- Column 3: Card 2 - Precise Identification of What Needs Improvement (Clean Inline SVG) -->
+            <div class="landing-feature-card landing-reveal-init" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div class="feature-card-icon-bubble" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="22" y1="12" x2="18" y2="12"></line>
+                  <line x1="6" y1="12" x2="2" y2="12"></line>
+                  <line x1="12" y1="6" x2="12" y2="2"></line>
+                  <line x1="12" y1="22" x2="12" y2="18"></line>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
               </div>
               <h3 style="font-size: clamp(0.92rem, 1.05vw, 1.02rem); font-weight: 700; line-height: 1.28; margin-bottom: 0.35rem;">
                 Precise Identification of What Needs Improvement
               </h3>
               <p style="font-size: clamp(0.78rem, 0.88vw, 0.86rem); line-height: 1.42; margin: 0; opacity: 0.92;">
-                Pinpoint exact areas—such as filler-word frequency, pacing issues, or gaps in technical clarity—instead of giving you vague feedback.
+                Pinpoint exact areas—such as filler-word frequency, pacing issues, or gaps in technical clarity—instead of vague remarks.
               </p>
             </div>
 
-            <!-- Column 4: Card 3 - Tailored to Your Specific Role & Resume -->
-            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
-              <div style="margin-bottom: 0.45rem; font-size: 1.45rem; display: flex; align-items: center; gap: 0.35rem; height: 28px;">
-                <span style="color: #60a5fa;">📄</span>
-                <span style="color: #f43f5e; font-size: 1.25rem;">🎯</span>
+            <!-- Column 4: Card 3 - Tailored to Your Specific Role & Resume (Clean Inline SVG) -->
+            <div class="landing-feature-card landing-reveal-init" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div class="feature-card-icon-bubble" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
               </div>
               <h3 style="font-size: clamp(0.92rem, 1.05vw, 1.02rem); font-weight: 700; line-height: 1.28; margin-bottom: 0.35rem;">
                 Tailored to Your Specific Role & Resume
@@ -412,11 +705,15 @@ export function renderApp() {
               </p>
             </div>
 
-            <!-- Column 5: Card 4 - Clear Performance Breakdown & Scoring -->
-            <div class="landing-feature-card" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
-              <div style="margin-bottom: 0.45rem; font-size: 1.45rem; display: flex; align-items: center; gap: 0.35rem; height: 28px;">
-                <span style="color: #38bdf8;">📈</span>
-                <span style="color: #3b82f6; font-size: 1.25rem;">🛡️</span>
+            <!-- Column 5: Card 4 - Clear Performance Breakdown & Scoring (Clean Inline SVG) -->
+            <div class="landing-feature-card landing-reveal-init" style="border-radius: 0; border: none; border-right: 1px solid rgba(59, 130, 246, 0.25); padding: 1.1rem 1.25rem; min-height: 165px; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; background: transparent; box-shadow: none;">
+              <div class="feature-card-icon-bubble" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                  <line x1="2" y1="20" x2="22" y2="20"></line>
+                </svg>
               </div>
               <h3 style="font-size: clamp(0.92rem, 1.05vw, 1.02rem); font-weight: 700; line-height: 1.28; margin-bottom: 0.35rem;">
                 Clear Performance Breakdown & Scoring
@@ -427,7 +724,7 @@ export function renderApp() {
             </div>
 
             <!-- Column 6: Right End Photo (Lady Candidate with Laptop) -->
-            <div style="position: relative; height: 100%; min-height: 155px; overflow: hidden; background: #070e20;">
+            <div class="landing-feature-side-photo" style="position: relative; height: 100%; min-height: 155px; overflow: hidden; background: #070e20;">
               <img 
                 src="/lady-candidate-right.jpg" 
                 alt="Candidate practicing mock interview" 
@@ -440,7 +737,7 @@ export function renderApp() {
         </div>
 
         <!-- BOTTOM BANNER: Ready to Ace Your Next Interview? (Edge-to-edge full width) -->
-        <div class="landing-bottom-banner" style="position: relative; width: 100vw; margin-left: -2.5rem; margin-right: -2.5rem; margin-top: 0; z-index: 2; background: linear-gradient(90deg, rgba(79, 70, 229, 0.4) 0%, rgba(37, 99, 235, 0.35) 50%, rgba(6, 182, 212, 0.25) 100%); border-top: 1px solid rgba(99, 102, 241, 0.45); border-bottom: none; border-left: none; border-right: none; backdrop-filter: blur(12px); border-radius: 0; padding: 0.75rem 2rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 -4px 25px rgba(79, 70, 229, 0.25); flex-shrink: 0;">
+        <div class="landing-bottom-banner" style="position: relative; width: 100vw; margin-left: -2.5rem; margin-right: -2.5rem; margin-top: 0; z-index: 2; border-top: 1px solid rgba(99, 102, 241, 0.45); border-bottom: none; border-left: none; border-right: none; backdrop-filter: blur(12px); border-radius: 0; padding: 0.75rem 2rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 -4px 25px rgba(79, 70, 229, 0.25); flex-shrink: 0;">
           
           <div style="max-width: 1360px; width: 100%; display: flex; align-items: center; justify-content: center;">
             <!-- Eye-catching Text Centered -->
@@ -479,6 +776,24 @@ export function renderApp() {
 
     const accountBtn = appContainer.querySelector('#landing-account-btn');
     if (accountBtn) accountBtn.addEventListener('click', triggerSignUp);
+
+    const bottomBanner = appContainer.querySelector('.landing-bottom-banner');
+    if (bottomBanner) {
+      bottomBanner.style.cursor = 'pointer';
+      bottomBanner.setAttribute('role', 'button');
+      bottomBanner.setAttribute('tabindex', '0');
+      bottomBanner.setAttribute('aria-label', 'Get started with InterviewIQ');
+      bottomBanner.addEventListener('click', triggerSignUp);
+      bottomBanner.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          triggerSignUp();
+        }
+      });
+    }
+
+    // Initialize the live demo simulation & scroll observer
+    activeLandingCleanup = initLandingController(appContainer);
 
     return;
   }
