@@ -1445,8 +1445,8 @@ body.logged-in-app #app.container {
   position: absolute;
   left: 0%;
   top: 5%;
-  width: 440px;
-  height: 260px;
+  width: 480px;
+  height: 285px;
   background: radial-gradient(circle, rgba(37, 99, 235, 0.42) 0%, rgba(99, 102, 241, 0.22) 50%, transparent 75%);
   filter: blur(40px);
   pointer-events: none;
@@ -1637,9 +1637,11 @@ body.logged-in-app #app.container {
   border-radius: 9999px;
   background: rgba(56, 189, 248, 0.12);
   border: 1px solid rgba(56, 189, 248, 0.3);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   color: #7dd3fc;
   font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .hud-status-badge .hud-status-dot {
@@ -1738,7 +1740,10 @@ body.logged-in-app #app.container {
   }
   .landing-laptop-wrapper {
     margin-left: -35px !important;
-    width: 480px !important;
+    width: 520px !important;
+  }
+  .landing-laptop-screen-grid {
+    height: 236px !important;
   }
 }
 
@@ -1763,8 +1768,11 @@ body.logged-in-app #app.container {
   }
   .landing-laptop-wrapper {
     margin-left: 0 !important;
-    max-width: 510px !important;
+    max-width: 540px !important;
     width: 100% !important;
+  }
+  .landing-laptop-screen-grid {
+    height: 238px !important;
   }
   .landing-feature-frame {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -1783,15 +1791,15 @@ body.logged-in-app #app.container {
   .landing-evaluator-portrait {
     display: block !important;
     position: absolute !important;
-    right: calc(50% - 255px) !important;
+    right: calc(50% - 270px) !important;
     top: -10px !important;
-    width: 220px !important;
-    height: 255px !important;
+    width: 230px !important;
+    height: 270px !important;
     z-index: 4 !important;
     pointer-events: none !important;
   }
   .landing-feedback-pill {
-    right: 20px !important;
+    right: 25px !important;
     top: -15px !important;
   }
 }
@@ -1816,21 +1824,22 @@ body.logged-in-app #app.container {
     height: auto !important;
   }
   .laptop-candidate-feed {
-    height: 165px !important;
+    height: 180px !important;
     border-right: none !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
   }
   .laptop-hud-screen {
     height: auto !important;
-    padding: 0.85rem !important;
+    padding: 0.9rem !important;
+    gap: 0.75rem !important;
   }
   .landing-evaluator-portrait {
     display: block !important;
     position: absolute !important;
     right: 0 !important;
     top: -10px !important;
-    width: 155px !important;
-    height: 180px !important;
+    width: 160px !important;
+    height: 190px !important;
     opacity: 0.85 !important;
     z-index: 4 !important;
     pointer-events: none !important;
