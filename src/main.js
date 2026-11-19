@@ -474,10 +474,10 @@ export function renderApp() {
           </div>
 
           <!-- RIGHT COLUMN: Laptop Mockup & Evaluator Picture -->
-          <div class="landing-hero-right hero-fade-in hero-delay-4" style="position: relative; width: 100%; min-height: 235px; display: flex; align-items: center; justify-content: flex-start;">
+          <div class="landing-hero-right hero-fade-in hero-delay-4" style="position: relative; width: 100%; min-height: 265px; display: flex; align-items: center; justify-content: flex-start;">
             
-            <!-- Laptop Device Mockup with Split Screen -->
-            <div class="landing-laptop-wrapper" style="position: relative; z-index: 3; width: 510px; margin-left: -75px;">
+            <!-- Laptop Device Mockup with Split Screen (Slightly Enlarged 5-10% for Optimal Dashboard Visibility) -->
+            <div class="landing-laptop-wrapper" style="position: relative; z-index: 3; width: 550px; margin-left: -65px;">
               
               <!-- Laptop Screen Frame -->
               <div style="background: #111827; border-radius: 14px 14px 0 0; padding: 6px 6px 0 6px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 35px rgba(37, 99, 235, 0.35); border: 1.5px solid #2d3b50; border-bottom: none; position: relative;">
@@ -485,8 +485,8 @@ export function renderApp() {
                 <!-- Tiny Top Camera Dot -->
                 <div style="width: 5px; height: 5px; background: #64748b; border-radius: 50%; margin: 0 auto 4px auto;" aria-hidden="true"></div>
 
-                <!-- Screen Contents (Left Candidate Video, Right HUD) -->
-                <div class="landing-laptop-screen-grid" style="position: relative; width: 100%; height: 215px; border-radius: 7px 7px 0 0; overflow: hidden; background: #070d1e; display: grid; grid-template-columns: 1fr 1fr;">
+                <!-- Screen Contents (Left Candidate Video, Right HUD - Height Expanded to 242px to Prevent Any Clipping) -->
+                <div class="landing-laptop-screen-grid" style="position: relative; width: 100%; height: 242px; border-radius: 7px 7px 0 0; overflow: hidden; background: #070d1e; display: grid; grid-template-columns: 1fr 1fr;">
                   
                   <!-- Left: Candidate Live Feed (Optimized WebP Asset) -->
                   <div class="laptop-candidate-feed" style="position: relative; height: 100%; overflow: hidden; border-right: 1px solid rgba(255,255,255,0.08);">
@@ -524,10 +524,10 @@ export function renderApp() {
                   </div>
 
                   <!-- Right: AI Analysis HUD Screen (Dynamic Coordinated Demonstration) -->
-                  <div class="laptop-hud-screen" style="background: #091224; padding: 0.75rem 0.85rem; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div class="laptop-hud-screen" style="background: #091224; padding: 0.72rem 0.88rem; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-sizing: border-box;">
                     
                     <!-- HUD Header with Status Badge -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; flex-shrink: 0;">
                       <div style="display: flex; align-items: center; gap: 0.45rem;">
                         <span style="font-size: 0.95rem; color: #38bdf8;" aria-hidden="true">📊</span>
                         <span style="font-size: 0.92rem; font-weight: 800; color: #ffffff; letter-spacing: -0.01em;">AI Analysis</span>
@@ -539,7 +539,7 @@ export function renderApp() {
                     </div>
 
                     <!-- Overall Score Circle & Text -->
-                    <div style="display: flex; align-items: center; gap: 0.65rem; padding: 0.15rem 0;">
+                    <div style="display: flex; align-items: center; gap: 0.65rem; padding: 0.15rem 0; flex-shrink: 0;">
                       <div class="score-conic-ring" id="hud-score-ring" style="width: 44px; height: 44px; border-radius: 50%; background: conic-gradient(#06b6d4 0% 84%, rgba(255,255,255,0.15) 84% 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(6, 182, 212, 0.45); flex-shrink: 0;">
                         <div class="laptop-mockup-score-number" id="hud-overall-score-num" style="width: 35px; height: 35px; border-radius: 50%; background: #070e20; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.08rem; color: #ffffff !important;">
                           84
@@ -551,8 +551,8 @@ export function renderApp() {
                       </div>
                     </div>
 
-                    <!-- Bounded Dynamic Progress Bars -->
-                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                    <!-- Bounded Dynamic Progress Bars (Always Fully Visible) -->
+                    <div style="display: flex; flex-direction: column; gap: 0.36rem; flex-shrink: 0;">
                       <div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.74rem; font-weight: 600; margin-bottom: 2px;">
                           <span style="color: #cbd5e1;">Response Directness</span>
@@ -599,15 +599,15 @@ export function renderApp() {
 
               </div>
 
-              <!-- Laptop Bottom Hinge / Base -->
-              <div style="width: 550px; height: 10px; background: linear-gradient(to bottom, #94a3b8, #475569); border-radius: 0 0 10px 10px; margin-left: -20px; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.85); position: relative;">
-                <div style="width: 60px; height: 3px; background: #334155; margin: 0 auto; border-radius: 0 0 3px 3px;"></div>
+              <!-- Laptop Bottom Hinge / Base (Proportionately scaled to 590px) -->
+              <div style="width: 590px; height: 11px; background: linear-gradient(to bottom, #94a3b8, #475569); border-radius: 0 0 10px 10px; margin-left: -20px; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.85); position: relative;">
+                <div style="width: 65px; height: 3px; background: #334155; margin: 0 auto; border-radius: 0 0 3px 3px;"></div>
               </div>
 
             </div>
 
             <!-- Floating Translucent Feedback Card with Lightbulb Icon (Overlapping Laptop & Evaluator) -->
-            <div class="landing-feedback-pill" id="landing-feedback-pill" style="position: absolute; right: 150px; top: 18px; z-index: 6; background: rgba(79, 70, 229, 0.88); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 10px; padding: 0.45rem 0.7rem; display: flex; align-items: center; gap: 0.45rem; box-shadow: 0 8px 18px rgba(79, 70, 229, 0.45); max-width: 175px;">
+            <div class="landing-feedback-pill" id="landing-feedback-pill" style="position: absolute; right: 145px; top: 16px; z-index: 6; background: rgba(79, 70, 229, 0.88); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 10px; padding: 0.45rem 0.7rem; display: flex; align-items: center; gap: 0.45rem; box-shadow: 0 8px 18px rgba(79, 70, 229, 0.45); max-width: 175px;">
               <span style="font-size: 1rem;" aria-hidden="true">💡</span>
               <span class="landing-feedback-pill-text" id="landing-feedback-pill-text" style="font-size: 0.62rem; font-weight: 700; color: #ffffff !important; line-height: 1.25;">
                 Clear structure articulating distributed caching trade-offs.
@@ -615,7 +615,7 @@ export function renderApp() {
             </div>
 
             <!-- Evaluator Asian Business Woman Photo on Right Edge (Upper Hero Visual) -->
-            <div class="landing-evaluator-portrait" style="position: absolute; right: -15px; top: -10px; width: 250px; height: 285px; pointer-events: none; z-index: 4; overflow: hidden; -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-composite: intersect;">
+            <div class="landing-evaluator-portrait" style="position: absolute; right: -15px; top: -12px; width: 260px; height: 295px; pointer-events: none; z-index: 4; overflow: hidden; -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 20%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%), linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-composite: intersect;">
               <img 
                 src="/girl-interview.png" 
                 alt="AI Evaluator conducting mock interview" 
