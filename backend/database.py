@@ -40,7 +40,10 @@ ALLOWED_USER_COLUMNS = {
     "otp_attempts", "otp_last_sent_at",
     "pending_email", "pending_email_otp_hash",
     "pending_email_expires_at", "pending_email_attempts",
-    "pending_email_last_sent_at"
+    "pending_email_last_sent_at",
+    "reset_password_otp_hash", "reset_password_otp_expires_at",
+    "reset_password_otp_attempts", "reset_password_otp_last_sent_at",
+    "reset_password_token_hash", "reset_password_token_expires_at"
 }
 
 COLUMN_ALIASES = {
@@ -302,7 +305,13 @@ def init_db(use_test_db: bool = False):
             ("pending_email_otp_hash", "VARCHAR(128) NULL"),
             ("pending_email_expires_at", "VARCHAR(35) NULL"),
             ("pending_email_attempts", "INT NOT NULL DEFAULT 0"),
-            ("pending_email_last_sent_at", "VARCHAR(35) NULL")
+            ("pending_email_last_sent_at", "VARCHAR(35) NULL"),
+            ("reset_password_otp_hash", "VARCHAR(128) NULL"),
+            ("reset_password_otp_expires_at", "VARCHAR(35) NULL"),
+            ("reset_password_otp_attempts", "INT NOT NULL DEFAULT 0"),
+            ("reset_password_otp_last_sent_at", "VARCHAR(35) NULL"),
+            ("reset_password_token_hash", "VARCHAR(128) NULL"),
+            ("reset_password_token_expires_at", "VARCHAR(35) NULL")
         ]:
             try:
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_type};")
@@ -433,7 +442,13 @@ def init_db(use_test_db: bool = False):
             ("pending_email_otp_hash", "TEXT"),
             ("pending_email_expires_at", "TEXT"),
             ("pending_email_attempts", "INTEGER DEFAULT 0"),
-            ("pending_email_last_sent_at", "TEXT")
+            ("pending_email_last_sent_at", "TEXT"),
+            ("reset_password_otp_hash", "TEXT"),
+            ("reset_password_otp_expires_at", "TEXT"),
+            ("reset_password_otp_attempts", "INTEGER DEFAULT 0"),
+            ("reset_password_otp_last_sent_at", "TEXT"),
+            ("reset_password_token_hash", "TEXT"),
+            ("reset_password_token_expires_at", "TEXT")
         ]:
             try:
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_type};")
@@ -598,6 +613,12 @@ def sanitize_user(user_dict: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any
     d.pop("pending_email_expires_at", None)
     d.pop("pending_email_attempts", None)
     d.pop("pending_email_last_sent_at", None)
+    d.pop("reset_password_otp_hash", None)
+    d.pop("reset_password_otp_expires_at", None)
+    d.pop("reset_password_otp_attempts", None)
+    d.pop("reset_password_otp_last_sent_at", None)
+    d.pop("reset_password_token_hash", None)
+    d.pop("reset_password_token_expires_at", None)
     return d
 
 

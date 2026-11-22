@@ -253,6 +253,67 @@ export const authState = {
     }
   },
 
+  async requestPasswordReset(email) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.detail || 'Failed to request password reset code.');
+      }
+      return json;
+    } catch (e) {
+      throw normalizeNetworkError(e);
+    }
+  },
+
+  async verifyPasswordResetOtp(email, otp) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/verify-reset-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.detail || 'Invalid or expired verification code.');
+      }
+      return json;
+    } catch (e) {
+      throw normalizeNetworkError(e);
+    }
+  },
+
+  async resetPassword({ email, resetToken, newPassword }) {
+    if (!newPassword || !newPassword.trim()) {
+      throw new Error('New password cannot be empty or contain only whitespace.');
+    }
+    if (newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters long.');
+    }
+    if (newPassword.length > 128) {
+      throw new Error('New password cannot exceed 128 characters.');
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, resetToken, newPassword })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.detail || 'Failed to reset password.');
+      }
+      return json;
+    } catch (e) {
+      throw normalizeNetworkError(e);
+    }
+  },
+
   async login(email, password) {
     // 1. Try Python API
     try {

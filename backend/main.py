@@ -89,6 +89,22 @@ class ChangePasswordRequest(BaseModel):
     newPasswordHash: Optional[str] = None
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=120)
+
+
+class VerifyResetOtpRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=120)
+    otp: str = Field(..., min_length=6, max_length=6)
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=120)
+    resetToken: str = Field(..., min_length=16)
+    newPassword: Optional[str] = None
+    newPasswordHash: Optional[str] = None
+
+
 class ChangeEmailRequest(BaseModel):
     newEmail: str = Field(..., min_length=5, max_length=120)
 
@@ -608,6 +624,274 @@ def change_password(
 
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@app.post("/api/auth/forgot-password")
+def forgot_password(req: ForgotPasswordRequest):
+    """
+    Public endpoint: Initiates password reset flow.
+    - Validates email format
+    - Generic response to prevent email enumeration / account discovery
+    - Enforces 60-second resend cooldown per account
+    - Generates cryptographically secure 6-digit OTP (5-minute expiry)
+    - Hashes OTP with SHA-256 for secure database persistence (single-use)
+    - Dispatches branded password reset email via Gmail SMTP (STARTTLS)
+    """
+    email = req.email.strip().lower()
+    if not EMAIL_REGEX.match(email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email address format."
+        )
+
+    generic_success = {
+        "success": True,
+        "message": "If an account exists with this email address, a password reset verification code has been dispatched. Please check your inbox."
+    }
+
+    user_record = db.get_user_by_email(email, include_credentials=True)
+    if not user_record:
+        # Privacy preservation: Return generic response without disclosing existence
+        return generic_success
+
+    # Cooldown check: 60 seconds
+    last_sent = user_record.get("reset_password_otp_last_sent_at")
+    if last_sent:
+        try:
+            last_dt = datetime.fromisoformat(last_sent)
+            elapsed = (datetime.utcnow() - last_dt).total_seconds()
+            if elapsed < 60:
+                remaining = int(60 - elapsed)
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Please wait {remaining} seconds before requesting another reset code."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    import secrets
+    otp = str(secrets.randbelow(900000) + 100000)
+    now = datetime.utcnow()
+    expires_at = (now + timedelta(minutes=5)).isoformat()
+    now_iso = now.isoformat()
+    otp_hash = sec.hash_otp(otp)
+
+    try:
+        from email_service import send_password_reset_email
+        send_password_reset_email(
+            recipient_email=email,
+            otp=otp,
+            user_name=user_record.get("name")
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Verification email could not be sent: {str(exc)}"
+        ) from exc
+
+    db.update_user(user_record["id"], {
+        "reset_password_otp_hash": otp_hash,
+        "reset_password_otp_expires_at": expires_at,
+        "reset_password_otp_attempts": 0,
+        "reset_password_otp_last_sent_at": now_iso
+    })
+
+    return generic_success
+
+
+@app.post("/api/auth/verify-reset-otp")
+def verify_reset_otp(req: VerifyResetOtpRequest):
+    """
+    Public endpoint: Verifies 6-digit OTP for password reset.
+    - Rate limits max 5 attempts before code invalidation
+    - Enforces 5-minute expiration timestamp
+    - Verifies candidate code using constant-time hash comparison
+    - Single-use: invalidates OTP immediately on verification
+    - Issues a short-lived, single-use reset authorization token (15 mins)
+    """
+    email = req.email.strip().lower()
+    user_record = db.get_user_by_email(email, include_credentials=True)
+    if not user_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code."
+        )
+
+    stored_hash = user_record.get("reset_password_otp_hash")
+    stored_expiry = user_record.get("reset_password_otp_expires_at")
+    current_attempts = int(user_record.get("reset_password_otp_attempts") or 0)
+
+    if not stored_hash or not stored_expiry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active password reset request found. Please request a new code."
+        )
+
+    # 1. Attempt limit check (Max 5)
+    if current_attempts >= 5:
+        db.update_user(user_record["id"], {
+            "reset_password_otp_hash": None,
+            "reset_password_otp_expires_at": None,
+            "reset_password_otp_attempts": current_attempts + 1
+        })
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum verification attempts exceeded. This reset code has been invalidated. Please request a new code."
+        )
+
+    # 2. Expiration check (5 mins)
+    try:
+        exp_dt = datetime.fromisoformat(stored_expiry)
+        if datetime.utcnow() > exp_dt:
+            db.update_user(user_record["id"], {
+                "reset_password_otp_hash": None,
+                "reset_password_otp_expires_at": None
+            })
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new reset code."
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a new reset code."
+        )
+
+    # 3. Constant-time hash comparison
+    is_match = sec.verify_hashed_otp(stored_hash, req.otp.strip())
+    if not is_match:
+        new_attempts = current_attempts + 1
+        remaining = max(0, 5 - new_attempts)
+        if remaining == 0:
+            db.update_user(user_record["id"], {
+                "reset_password_otp_hash": None,
+                "reset_password_otp_expires_at": None,
+                "reset_password_otp_attempts": new_attempts
+            })
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum verification attempts exceeded. This reset code has been invalidated. Please request a new code."
+            )
+        else:
+            db.update_user(user_record["id"], {"reset_password_otp_attempts": new_attempts})
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid verification code. {remaining} attempt(s) remaining."
+            )
+
+    # 4. Success: Invalidate OTP (single-use) and generate single-use reset authorization token
+    import secrets
+    raw_reset_token = secrets.token_urlsafe(32)
+    token_hash = sec.hash_otp(raw_reset_token)
+    token_expires_at = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
+
+    db.update_user(user_record["id"], {
+        "reset_password_otp_hash": None,
+        "reset_password_otp_expires_at": None,
+        "reset_password_otp_attempts": 0,
+        "reset_password_token_hash": token_hash,
+        "reset_password_token_expires_at": token_expires_at
+    })
+
+    return {
+        "success": True,
+        "message": "Verification code confirmed. You may now set your new password.",
+        "resetToken": raw_reset_token
+    }
+
+
+@app.post("/api/auth/reset-password")
+def reset_password(req: ResetPasswordRequest):
+    """
+    Public endpoint: Completes password reset using verified authorization token.
+    - Validates token against single-use hash and 15-minute expiration
+    - Enforces existing authoritative 8-128 char password policy
+    - Rejects direct hash bypass attempts (newPasswordHash)
+    - Hashes new password with standard direct bcrypt (12 rounds)
+    - Invalidates reset token session (single-use)
+    - Updates user password and sets verified=1
+    """
+    # 1. Direct hash bypass prevention
+    if req.newPasswordHash and not req.newPassword:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Direct password hash submission is not permitted. Please submit a valid plain password."
+        )
+    if not req.newPassword:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password is required."
+        )
+
+    # 2. Authoritative password strength policy
+    sec.validate_password_strength(req.newPassword)
+
+    email = req.email.strip().lower()
+    user_record = db.get_user_by_email(email, include_credentials=True)
+    if not user_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset session. Please request a new code."
+        )
+
+    stored_token_hash = user_record.get("reset_password_token_hash")
+    stored_token_expiry = user_record.get("reset_password_token_expires_at")
+
+    if not stored_token_hash or not stored_token_expiry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active password reset session found. Please request a new code."
+        )
+
+    # 3. Expiration check
+    try:
+        exp_dt = datetime.fromisoformat(stored_token_expiry)
+        if datetime.utcnow() > exp_dt:
+            db.update_user(user_record["id"], {
+                "reset_password_token_hash": None,
+                "reset_password_token_expires_at": None
+            })
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset session has expired. Please restart the password reset process."
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset session has expired. Please restart the password reset process."
+        )
+
+    # 4. Token match check (constant-time)
+    if not sec.verify_hashed_otp(stored_token_hash, req.resetToken.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset authorization token."
+        )
+
+    # 5. Bcrypt hashing with 12 rounds
+    new_hash = sec.hash_password(req.newPassword)
+
+    # 6. Single-use consumption & password update
+    db.update_user(user_record["id"], {
+        "password_hash": new_hash,
+        "reset_password_token_hash": None,
+        "reset_password_token_expires_at": None,
+        "reset_password_otp_hash": None,
+        "reset_password_otp_expires_at": None,
+        "reset_password_otp_attempts": 0,
+        "verified": 1
+    })
+
+    return {
+        "success": True,
+        "message": "Password has been successfully reset. Please sign in with your new password."
+    }
 
 
 @app.post("/api/auth/change-email/request")

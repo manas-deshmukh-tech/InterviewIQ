@@ -204,3 +204,140 @@ def send_otp_email(recipient_email: str, otp: str, user_name: Optional[str] = No
         print(f"[SECURITY ALERT] SMTP delivery error to {recipient_email}: {exc.__class__.__name__}: {exc}")
         raise SMTPDeliveryError(f"Email delivery failed: {str(exc)}") from exc
 
+
+def render_password_reset_email_html(otp: str, user_name: Optional[str] = None) -> str:
+    """Renders a sleek, high-trust InterviewIQ branded HTML password reset email (5-minute expiry)."""
+    display_name = user_name.strip() if user_name else "Candidate"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your InterviewIQ Password</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #f8fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0b1120; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 540px; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);">
+          <!-- Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%); padding: 32px 36px; text-align: left;">
+              <div style="font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">
+                Interview<span style="color: #38bdf8;">IQ</span>
+              </div>
+              <div style="font-size: 13px; font-weight: 600; color: #e0f2fe; margin-top: 4px; letter-spacing: 0.2px;">
+                Security & Authentication Dispatch
+              </div>
+            </td>
+          </tr>
+
+          <!-- Main Body -->
+          <tr>
+            <td style="padding: 36px 36px 28px 36px;">
+              <div style="font-size: 18px; font-weight: 700; color: #f8fafc; margin-bottom: 12px;">
+                Password Reset Request
+              </div>
+              <div style="font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 24px;">
+                Hello {display_name},<br><br>
+                A password reset was requested for your <strong>InterviewIQ</strong> account. Please use the single-use verification code below to authorize this password reset:
+              </div>
+
+              <!-- OTP Display Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td align="center" style="background-color: #1e293b; border: 2px dashed #0284c7; border-radius: 12px; padding: 22px 16px;">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #38bdf8; letter-spacing: 1.5px; margin-bottom: 6px;">
+                      Password Reset Verification Code
+                    </div>
+                    <div style="font-family: 'SF Mono', Monaco, 'Courier New', monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #ffffff;">
+                      {otp}
+                    </div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
+                      ⏱ Valid for <strong>5 minutes</strong>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Security Advisory -->
+              <div style="background-color: rgba(14, 165, 233, 0.08); border-left: 3px solid #0284c7; border-radius: 4px; padding: 12px 14px; margin-bottom: 24px;">
+                <div style="font-size: 12px; line-height: 1.5; color: #cbd5e1;">
+                  🔒 <strong>Security Notice:</strong> If you did not request a password reset, please disregard this email. Your password will not change without this code.
+                </div>
+              </div>
+
+              <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
+                Best regards,<br>
+                <strong style="color: #94a3b8;">The InterviewIQ Security Team</strong>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="border-top: 1px solid #1e293b; padding: 20px 36px; background-color: #0b1120; text-align: center;">
+              <div style="font-size: 11px; color: #64748b; line-height: 1.4;">
+                This is an automated security dispatch. Please do not reply directly to this email.<br>
+                © 2026 InterviewIQ Platform. All rights reserved.
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def send_password_reset_email(recipient_email: str, otp: str, user_name: Optional[str] = None) -> bool:
+    """
+    Sends a 5-minute single-use password reset OTP to the user's email via Gmail SMTP with STARTTLS.
+    """
+    cfg = get_smtp_config()
+
+    if not is_smtp_configured():
+        raise SMTPConfigurationError(
+            "SMTP email service is not configured. Please configure SMTP_USERNAME and SMTP_PASSWORD in backend/.env."
+        )
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Reset Your InterviewIQ Password"
+    msg["From"] = cfg["from_addr"]
+    msg["To"] = recipient_email
+
+    plain_text = (
+        f"Hello {user_name or 'Candidate'},\n\n"
+        f"Your InterviewIQ password reset code is: {otp}\n\n"
+        f"This code will expire in 5 minutes.\n"
+        f"If you did not request a password reset, please disregard this message.\n\n"
+        f"— The InterviewIQ Security Team"
+    )
+    msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+    html_content = render_password_reset_email_html(otp, user_name)
+    msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as server:
+            server.ehlo()
+            server.starttls(context=context)
+            server.ehlo()
+            server.login(cfg["username"], cfg["password"])
+            server.send_message(msg)
+
+        print(f"[SECURITY NOTIFICATION] Password reset OTP successfully dispatched to {recipient_email}")
+        return True
+
+    except smtplib.SMTPAuthenticationError as auth_err:
+        raise SMTPDeliveryError(
+            "Gmail SMTP authentication failed. Please ensure a dedicated Google App Password is used."
+        ) from auth_err
+    except smtplib.SMTPConnectError as conn_err:
+        raise SMTPDeliveryError(
+            f"Failed to connect to SMTP server {cfg['host']}:{cfg['port']}."
+        ) from conn_err
+    except Exception as exc:
+        raise SMTPDeliveryError(f"Email delivery failed: {str(exc)}") from exc
+
