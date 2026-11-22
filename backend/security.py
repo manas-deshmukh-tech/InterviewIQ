@@ -30,6 +30,86 @@ OTP_EXPIRE_MINUTES = 10
 security_bearer = HTTPBearer(auto_error=False)
 
 
+# ==================== Password Policy & Strength Validation ====================
+
+COMMON_WEAK_PASSWORDS = {
+    "12345678",
+    "password",
+    "admin123",
+    "qwerty12",
+    "123456789012",
+    "password1234",
+    "password12345",
+    "password123456",
+    "admin12345678",
+    "administrator1",
+    "qwerty123456",
+    "qwertyuiop12",
+    "welcome123456",
+    "letmein123456",
+    "iloveyou12345",
+    "monkey1234567",
+    "dragon1234567",
+    "sunshine12345",
+    "princess12345",
+    "football12345",
+    "interviewiq123",
+    "superman12345",
+    "trustno112345",
+    "computer12345",
+    "secret1234567",
+    "test123456789",
+    "changeme12345",
+    "default123456",
+    "passphrase123",
+    "testing123456",
+    "master1234567",
+    "root123456789",
+    "guest12345678"
+}
+
+
+def check_password_strength(password: str) -> tuple:
+    """
+    Validates password strength according to InterviewIQ security policy:
+    - Length: 8 to 128 characters
+    - Must not be empty or whitespace-only
+    - Allows letters, numbers, spaces, and symbols (no arbitrary mandatory combinations)
+    - Rejects common weak passwords and simple repetitive characters
+
+    Returns:
+        (is_valid: bool, error_message: Optional[str])
+    """
+    if not isinstance(password, str):
+        return False, "Password must be a valid string."
+    if not password:
+        return False, "Password cannot be empty."
+    if not password.strip():
+        return False, "Password cannot consist entirely of whitespace."
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if len(password) > 128:
+        return False, "Password cannot exceed 128 characters."
+    if len(set(password)) == 1:
+        return False, "Password is too simple. Please choose a more secure password."
+    if password.lower().strip() in COMMON_WEAK_PASSWORDS:
+        return False, "This password is too common and easily guessed. Please choose a more secure password."
+    return True, None
+
+
+def validate_password_strength(password: str) -> None:
+    """
+    Authoritative backend validator for registration and password change.
+    Raises HTTPException(400) if password fails policy.
+    """
+    is_valid, error_msg = check_password_strength(password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg
+        )
+
+
 # ==================== Password Hashing & Verification ====================
 
 def hash_password(password: str) -> str:
@@ -40,28 +120,56 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
+def verify_password_with_status(plain_password: str, hashed_password: str) -> tuple:
+    """
+    Verifies a candidate password against a stored hash and detects if an upgrade is needed.
+    Returns:
+        (is_valid: bool, needs_upgrade: bool)
+
+    Supports:
+    1. Direct standard Bcrypt ($2a$, $2b$, $2y$): (True, False)
+    2. Bcrypt of SHA-256 (from prior client-side pre-hashing): (True, True)
+    3. Legacy raw 64-char hex SHA-256: (True, True)
+    """
+    if not hashed_password or not plain_password:
+        return False, False
+
+    # 1. Standard Bcrypt ($2a$, $2b$, $2y$)
+    if hashed_password.startswith("$2"):
+        try:
+            # Check direct plain text match
+            if bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8")):
+                return True, False
+        except Exception:
+            pass
+
+        try:
+            # Check bcrypt of SHA-256 (for accounts created when client pre-hashed passwords)
+            sha256_hex = hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
+            if bcrypt.checkpw(sha256_hex.encode("utf-8"), hashed_password.encode("utf-8")):
+                return True, True
+        except Exception:
+            pass
+
+    # 2. Legacy raw SHA-256 hash compatibility (64 hex characters)
+    if len(hashed_password) == 64:
+        sha256_hex = hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
+        if secrets.compare_digest(sha256_hex.lower(), hashed_password.lower()):
+            return True, True
+        # If caller passed an already-hashed 64-char hex string
+        if secrets.compare_digest(plain_password.lower(), hashed_password.lower()):
+            return True, True
+
+    return False, False
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verifies a plain password against a stored hash.
-    Supports standard bcrypt hashes and seamless backward compatibility for SHA-256.
+    Supports standard bcrypt hashes, bcrypt-of-sha256, and seamless backward compatibility for SHA-256.
     """
-    if not hashed_password or not plain_password:
-        return False
-
-    # Standard Bcrypt ($2a$, $2b$, $2y$)
-    if hashed_password.startswith("$2"):
-        try:
-            return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
-        except Exception:
-            return False
-
-    # Legacy SHA-256 hash compatibility (64 hex characters)
-    if len(hashed_password) == 64:
-        import hashlib
-        computed = hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
-        return secrets.compare_digest(computed.lower(), hashed_password.lower())
-
-    return False
+    is_valid, _ = verify_password_with_status(plain_password, hashed_password)
+    return is_valid
 
 
 # ==================== OTP Generation & Verification ====================

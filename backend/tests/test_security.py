@@ -12,6 +12,9 @@ from main import app
 from security import (
     hash_password,
     verify_password,
+    verify_password_with_status,
+    check_password_strength,
+    validate_password_strength,
     generate_secure_otp,
     verify_otp_timestamp,
     create_access_token,
@@ -357,3 +360,319 @@ def test_registration_and_otp_verification_flow(client):
     # Clean up test user
     from database import delete_user
     delete_user(user_data["id"])
+
+
+# ---------------------------------------------------------
+# 8. Password Policy & Security Hardening Tests
+# ---------------------------------------------------------
+def test_password_strength_unit_validation():
+    # Boundary checks: below 8 characters (7 chars and fewer)
+    short_examples = ["", "1", "1234", "12345", "123456", "pass123", "abcdefg", "1234567"]
+    for pw in short_examples:
+        valid, msg = check_password_strength(pw)
+        assert valid is False, f"Password '{pw}' (len {len(pw)}) should have failed min length check"
+        assert "at least 8 characters" in msg or "cannot be empty" in msg
+
+    # Exact 8-character valid boundary checks
+    valid_8_char_examples = ["Secure8!", "MyPass8#", "Valid_8x", "Passw0rd", "custom88"]
+    for pw in valid_8_char_examples:
+        valid, msg = check_password_strength(pw)
+        assert valid is True, f"8-character password '{pw}' should have passed validation but got: {msg}"
+
+    # 9 to 128 characters valid checks
+    valid_mid_length_examples = [
+        "Password9",                     # 9 chars
+        "Password123",                   # 11 chars
+        "correct horse battery staple",   # 28 chars
+        "SuperSecure#2026!",             # 17 chars
+        "A" * 64 + "B" * 63 + "1"        # 128 chars
+    ]
+    for pw in valid_mid_length_examples:
+        valid, msg = check_password_strength(pw)
+        assert valid is True, f"Password '{pw}' (len {len(pw)}) should have passed validation but got: {msg}"
+
+    # Whitespace-only passwords
+    whitespace_examples = ["        ", "            ", "   \t   \n  "]
+    for pw in whitespace_examples:
+        valid, msg = check_password_strength(pw)
+        assert valid is False, f"Whitespace password should have failed"
+        assert "whitespace" in msg
+
+    # Maximum length check: 128 chars
+    valid_128 = "A" + ("b" * 126) + "1"
+    assert len(valid_128) == 128
+    valid, msg = check_password_strength(valid_128)
+    assert valid is True
+
+    invalid_129 = valid_128 + "x"
+    assert len(invalid_129) == 129
+    valid, msg = check_password_strength(invalid_129)
+    assert valid is False
+    assert "cannot exceed 128 characters" in msg
+
+    # Common weak passwords (even if >= 8 characters)
+    weak_examples = ["password", "12345678", "admin123", "123456789012", "password1234", "admin12345678", "qwerty123456"]
+    for pw in weak_examples:
+        valid, msg = check_password_strength(pw)
+        assert valid is False, f"Weak password '{pw}' should have failed"
+        assert "common" in msg or "guessed" in msg
+
+    # Repetitive character passwords
+    repetitive_examples = ["aaaaaaaa", "11111111", "aaaaaaaaaaaa", "111111111111"]
+    for pw in repetitive_examples:
+        valid, msg = check_password_strength(pw)
+        assert valid is False, f"Repetitive password '{pw}' should have failed"
+        assert "simple" in msg
+
+
+def test_registration_password_policy_enforcement(client):
+    from unittest.mock import patch
+
+    # 1. Attempt registering with single-digit password '1' -> Must fail with 400
+    res_1 = client.post("/api/auth/register", json={
+        "name": "Weak User",
+        "email": "weak1@test.com",
+        "password": "1",
+        "consent": True
+    })
+    assert res_1.status_code == 400
+    assert "at least 8 characters" in res_1.json()["detail"]
+
+    # 2. Attempt registering with 7-character password 'pass123' -> Must fail with 400
+    res_7char = client.post("/api/auth/register", json={
+        "name": "Weak User",
+        "email": "weak2@test.com",
+        "password": "pass123",
+        "consent": True
+    })
+    assert res_7char.status_code == 400
+    assert "at least 8 characters" in res_7char.json()["detail"]
+
+    # 3. Attempt registering with weak common 8-char password 'password' -> Must fail with 400
+    res_weak = client.post("/api/auth/register", json={
+        "name": "Weak User",
+        "email": "weak3@test.com",
+        "password": "password",
+        "consent": True
+    })
+    assert res_weak.status_code == 400
+    assert "common" in res_weak.json()["detail"] or "guessed" in res_weak.json()["detail"]
+
+    # 4. Attempt registering with whitespace-only -> Must fail with 400
+    res_space = client.post("/api/auth/register", json={
+        "name": "Weak User",
+        "email": "weak4@test.com",
+        "password": "        ",
+        "consent": True
+    })
+    assert res_space.status_code == 400
+    assert "whitespace" in res_space.json()["detail"]
+
+    # 5. Direct API bypass: Attempting to send pre-hashed 'passwordHash' to bypass validation -> Must fail with 400
+    res_bypass = client.post("/api/auth/register", json={
+        "name": "Bypass Attacker",
+        "email": "attacker@test.com",
+        "passwordHash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",  # sha256 of '1'
+        "consent": True
+    })
+    assert res_bypass.status_code == 400
+    assert "not permitted" in res_bypass.json()["detail"]
+
+    # 6. Valid registration with compliant 8-character password -> Must succeed with 201
+    valid_email = f"valid_cand_{int(time.time())}@interviewiq.io"
+    with patch("email_service.send_otp_email", return_value=True):
+        res_ok = client.post("/api/auth/register", json={
+            "name": "Policy Compliant",
+            "email": valid_email,
+            "password": "Secure8!",
+            "role": "Candidate",
+            "consent": True
+        })
+        assert res_ok.status_code == 201
+        created_user = res_ok.json()["user"]
+        from database import delete_user
+        delete_user(created_user["id"])
+
+
+def test_change_password_policy_enforcement(client):
+    # Log in candidate
+    cand_login = client.post("/api/auth/login", json={
+        "email": "candidate@interviewiq.io",
+        "password": "password123"
+    })
+    assert cand_login.status_code == 200
+    token = cand_login.json()["access_token"]
+    user_id = cand_login.json()["user"]["id"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Attempt changing password to 7-character 'pass123' -> Must fail with 400
+    res_short = client.post("/api/auth/change-password", headers=headers, json={
+        "userId": user_id,
+        "currentPassword": "password123",
+        "newPassword": "pass123"
+    })
+    assert res_short.status_code == 400
+    assert "at least 8 characters" in res_short.json()["detail"]
+
+    # 2. Attempt changing password using direct hash bypass -> Must fail with 400
+    res_hash = client.post("/api/auth/change-password", headers=headers, json={
+        "userId": user_id,
+        "currentPassword": "password123",
+        "newPasswordHash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    })
+    assert res_hash.status_code == 400
+    assert "not permitted" in res_hash.json()["detail"]
+
+    # 3. Attempt changing password with wrong current password -> Must fail with 400
+    res_wrong = client.post("/api/auth/change-password", headers=headers, json={
+        "userId": user_id,
+        "currentPassword": "WrongCurrentPassword123!",
+        "newPassword": "ValidNewPass8#"
+    })
+    assert res_wrong.status_code == 400
+    assert "incorrect" in res_wrong.json()["detail"]
+
+    # 4. Successful password change with valid 8-character password
+    res_valid = client.post("/api/auth/change-password", headers=headers, json={
+        "userId": user_id,
+        "currentPassword": "password123",
+        "newPassword": "BrandNewSecurePassphrase#2026!"
+    })
+    assert res_valid.status_code == 200
+
+    # 5. Log in with the new password
+    new_login = client.post("/api/auth/login", json={
+        "email": "candidate@interviewiq.io",
+        "password": "BrandNewSecurePassphrase#2026!"
+    })
+    assert new_login.status_code == 200
+
+    # Revert password back so subsequent tests maintain expected seed state
+    revert_res = client.post("/api/auth/change-password", headers={"Authorization": f"Bearer {new_login.json()['access_token']}"}, json={
+        "userId": user_id,
+        "currentPassword": "BrandNewSecurePassphrase#2026!",
+        "newPassword": "password123_temp"
+    })
+    # Reset directly in DB to standard test password123
+    from database import update_user
+    update_user(user_id, {"password_hash": hash_password("password123")})
+
+
+def test_login_accepts_existing_short_password_account(client):
+    """
+    Requirement 6 & 7: Login must continue accepting existing accounts regardless of
+    whether their old password is shorter than 8 characters. Do not apply new-password
+    validation to login.
+    """
+    from database import create_user, delete_user
+    short_pw = "short5"  # 6 characters (< 8 chars)
+    test_email = f"short_legacy_{int(time.time())}@interviewiq.io"
+    user_id = f"usr_short_{int(time.time() * 1000)}"
+    user_record = {
+        "id": user_id,
+        "name": "Short Password Legacy User",
+        "email": test_email,
+        "password_hash": hash_password(short_pw),
+        "role": "Candidate",
+        "verified": 1,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    create_user(user_record)
+
+    try:
+        # Existing account with < 8 chars must be able to log in successfully
+        login_res = client.post("/api/auth/login", json={
+            "email": test_email,
+            "password": short_pw
+        })
+        assert login_res.status_code == 200
+        data = login_res.json()
+        assert data["success"] is True
+        assert "access_token" in data
+        assert data["user"]["email"] == test_email
+    finally:
+        delete_user(user_id)
+
+
+def test_backward_compatible_login_and_hash_auto_upgrade(client):
+    import hashlib
+    # Create a test user with a legacy SHA-256 hash
+    legacy_email = f"legacy_sha256_{int(time.time())}@test.com"
+    plain_pw = "LegacySecret#2026"
+    raw_sha256 = hashlib.sha256(plain_pw.encode("utf-8")).hexdigest()
+
+    legacy_user = {
+        "id": f"usr_legacy_{int(time.time())}",
+        "name": "Legacy User",
+        "email": legacy_email,
+        "password_hash": raw_sha256,
+        "role": "Candidate",
+        "verified": 1
+    }
+    create_user(legacy_user)
+
+    try:
+        # Step 1: User logs in with plain text password
+        login_res = client.post("/api/auth/login", json={
+            "email": legacy_email,
+            "password": plain_pw
+        })
+        assert login_res.status_code == 200
+        assert "access_token" in login_res.json()
+
+        # Step 2: Verify in database that hash was auto-upgraded to standard Bcrypt ($2b$)
+        stored = get_user_by_email(legacy_email, include_credentials=True)
+        assert stored["password_hash"].startswith("$2b$")
+        assert len(stored["password_hash"]) >= 60
+
+        # Step 3: Login again to verify standard Bcrypt authentication works
+        login_again = client.post("/api/auth/login", json={
+            "email": legacy_email,
+            "password": plain_pw
+        })
+        assert login_again.status_code == 200
+
+    finally:
+        from database import delete_user
+        delete_user(legacy_user["id"])
+
+
+def test_prehashed_bcrypt_backward_compatibility(client):
+    import hashlib
+    # Simulate an account registered under the old architecture where
+    # client sent sha256(pw) and backend saved bcrypt(sha256(pw))
+    prehash_email = f"prehash_user_{int(time.time())}@test.com"
+    plain_pw = "MyPreHashedPassword#2026"
+    client_prehash = hashlib.sha256(plain_pw.encode("utf-8")).hexdigest()
+    bcrypt_of_sha256 = hash_password(client_prehash)
+
+    prehash_user = {
+        "id": f"usr_prehash_{int(time.time())}",
+        "name": "Prehash User",
+        "email": prehash_email,
+        "password_hash": bcrypt_of_sha256,
+        "role": "Candidate",
+        "verified": 1
+    }
+    create_user(prehash_user)
+
+    try:
+        # Step 1: User logs in with plain text password (new frontend behavior)
+        login_res = client.post("/api/auth/login", json={
+            "email": prehash_email,
+            "password": plain_pw
+        })
+        assert login_res.status_code == 200
+        assert "access_token" in login_res.json()
+
+        # Step 2: The hash should be auto-upgraded to direct bcrypt(plain_pw)
+        stored = get_user_by_email(prehash_email, include_credentials=True)
+        assert stored["password_hash"].startswith("$2b$")
+        # Direct verify should now work without pre-hashing
+        import bcrypt
+        assert bcrypt.checkpw(plain_pw.encode("utf-8"), stored["password_hash"].encode("utf-8"))
+
+    finally:
+        from database import delete_user
+        delete_user(prehash_user["id"])
