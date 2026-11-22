@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "backend": "./backend/venv/bin/uvicorn main:app --app-dir backend --reload --port 8000",
+    "backend": "./backend/venv/bin/uvicorn main:app --app-dir backend --reload --reload-dir backend --host 127.0.0.1 --port 8000",
     "build": "vite build",
     "preview": "vite preview"
   },

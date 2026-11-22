@@ -5,12 +5,22 @@ export async function sha256(message) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-const API_BASE = 'http://localhost:8000/api';
+export const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE)
+  ? import.meta.env.VITE_API_BASE
+  : '/api';
 const STORAGE_USERS = 'ai_interview_users';
 const STORAGE_CURRENT_USER = 'ai_interview_current_user';
 const STORAGE_INTERVIEWS = 'ai_interview_sessions';
+const STORAGE_DEMO_INTERVIEWS = 'ai_interview_demo_sessions';
 const STORAGE_CUSTOM_QUESTIONS = 'ai_interview_custom_questions';
 export const STORAGE_AUTH_TOKEN = 'ai_interview_token';
+
+function normalizeNetworkError(e) {
+  if (e && (e.name === 'TypeError' || e.message === 'Load failed' || (e.message && e.message.includes('fetch')) || (e.message && e.message.includes('NetworkError')))) {
+    return new Error('Could not connect to backend server. Please verify the API is running.');
+  }
+  return e;
+}
 
 export function getAuthHeaders() {
   const token = localStorage.getItem(STORAGE_AUTH_TOKEN);

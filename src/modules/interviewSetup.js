@@ -1,6 +1,6 @@
 import { INTERVIEW_ROLES, QUESTION_BANK, PERSONAS, INTERVIEW_MODES, getQuestionsForRole, getDurationQuestionCount, getInterviewer, getInterviewerForRole, INTERVIEWERS } from '../data/questionBank.js';
 import { parseResumeFile } from './resumeParser.js';
-import { getAuthHeaders } from './auth.js';
+import { getAuthHeaders, API_BASE } from './auth.js';
 import { SpeechEngine } from './speechEngine.js';
 
 export function renderInterviewSetup(container, currentUser = {}, onStartInterview, initialConfig = null) {
@@ -1053,7 +1053,7 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
 
         // 1. Try requesting intelligent deduplicated question set from FastAPI backend
         try {
-          const res = await fetch('http://localhost:8000/api/interviews/questions/prepare', {
+          const res = await fetch(`${API_BASE}/interviews/questions/prepare`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
@@ -1128,7 +1128,7 @@ export function renderInterviewSetup(container, currentUser = {}, onStartIntervi
     // Connect to AI question generation endpoint for resume projects
     try {
       const selectedRole = getSelectedRole();
-      const res = await fetch('http://localhost:8000/api/ai/generate-questions', {
+      const res = await fetch(`${API_BASE}/ai/generate-questions`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({

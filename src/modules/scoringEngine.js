@@ -1,12 +1,13 @@
 // Real-time Evidence Extraction & Explainable Rubric Engine
 // Detects exact cited quotes, technical terminology, STAR framework alignment, and delivery evidence
+import { API_BASE } from './auth.js';
 
 export async function evaluateAnswerAsync({ questionObj, answerText, deliveryTelemetry, baseline = null }) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const res = await fetch('http://localhost:8000/api/evaluate', {
+    const res = await fetch(`${API_BASE}/evaluate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
