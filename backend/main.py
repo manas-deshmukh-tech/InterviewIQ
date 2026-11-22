@@ -16,7 +16,7 @@ import uvicorn
 import time
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import database as db
 import security as sec
@@ -230,15 +230,22 @@ def register_user(req: RegisterRequest):
             detail="An account with this email already exists."
         )
 
-    # Resolve password and hash with bcrypt
-    plain_pw = req.password or req.passwordHash
-    if not plain_pw or len(plain_pw) < 6:
+    # Password validation: require plain password and strictly validate strength
+    # Reject direct password hash submissions to prevent validation bypass
+    if req.passwordHash and not req.password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 6 characters long."
+            detail="Direct password hash submission is not permitted. Please submit a valid plain password."
+        )
+    if not req.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is required."
         )
 
-    password_hash = sec.hash_password(plain_pw)
+    sec.validate_password_strength(req.password)
+
+    password_hash = sec.hash_password(req.password)
     user_id = f"usr_{int(time.time() * 1000)}"
     otp, otp_expires_at = sec.generate_secure_otp()
     now_iso = datetime.utcnow().isoformat()
@@ -470,18 +477,27 @@ def login_user(req: LoginRequest):
             detail="Password is required."
         )
 
-    # Verify password against hash
-    is_password_valid = sec.verify_password(plain_pw, user_record["password_hash"])
+    # Verify password against hash with upgrade detection
+    is_password_valid, needs_upgrade = sec.verify_password_with_status(plain_pw, user_record["password_hash"])
     if not is_password_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect password provided."
         )
 
-    # Auto-upgrade legacy SHA-256 hash to Bcrypt if detected
-    if len(user_record["password_hash"]) == 64:
-        new_bcrypt = sec.hash_password(plain_pw)
-        db.update_user(user_record["id"], {"password_hash": new_bcrypt})
+    # Auto-upgrade legacy hash to standard Bcrypt if detected and plain password was provided
+    if needs_upgrade and req.password:
+        try:
+            new_bcrypt = sec.hash_password(req.password)
+            db.update_user(user_record["id"], {"password_hash": new_bcrypt})
+        except Exception:
+            pass  # Non-blocking upgrade
+    elif len(user_record.get("password_hash", "")) == 64 and plain_pw:
+        try:
+            new_bcrypt = sec.hash_password(plain_pw)
+            db.update_user(user_record["id"], {"password_hash": new_bcrypt})
+        except Exception:
+            pass
 
     # Verification status check
     if not user_record.get("verified", 1):
@@ -566,18 +582,27 @@ def change_password(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
     curr_pw = req.currentPassword or req.currentPasswordHash
-    new_pw = req.newPassword or req.newPasswordHash
+    if not curr_pw:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is required.")
 
-    if not curr_pw or not new_pw:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current and new passwords required.")
+    if req.newPasswordHash and not req.newPassword:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Direct password hash submission is not permitted. Please submit a valid plain password."
+        )
 
-    if not sec.verify_password(curr_pw, user_record["password_hash"]):
+    if not req.newPassword:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password is required.")
+
+    # Verify current password against stored hash (supports bcrypt, bcrypt-of-sha256, and raw sha256)
+    is_curr_valid, _ = sec.verify_password_with_status(curr_pw, user_record["password_hash"])
+    if not is_curr_valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect.")
 
-    if len(new_pw) < 6:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be at least 6 characters.")
+    # Strictly validate new password against authoritative policy
+    sec.validate_password_strength(req.newPassword)
 
-    new_hash = sec.hash_password(new_pw)
+    new_hash = sec.hash_password(req.newPassword)
     db.update_user(req.userId, {"password_hash": new_hash})
     return {"success": True, "message": "Password updated successfully."}
 

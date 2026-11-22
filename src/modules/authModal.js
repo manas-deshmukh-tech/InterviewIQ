@@ -75,9 +75,39 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
         </div>
 
         <div class="input-group" style="margin-bottom: 0;">
-          <label class="input-label" style="font-size: 0.8rem;">Password</label>
-          <input type="password" id="auth-password" class="input-text" style="padding: 0.55rem 0.8rem; font-size: 0.9rem;" placeholder="••••••••" required />
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+            <label class="input-label" style="font-size: 0.8rem; margin-bottom: 0;">Password</label>
+            ${currentTab === 'signup' ? '<span style="font-size: 0.72rem; color: var(--text-muted);">Min. 8 characters</span>' : ''}
+          </div>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="auth-password" class="input-text" style="padding: 0.55rem 2.4rem 0.55rem 0.8rem; font-size: 0.9rem; width: 100%;" placeholder="••••••••••••" required autocomplete="${currentTab === 'login' ? 'current-password' : 'new-password'}" />
+            <button type="button" id="toggle-auth-password" aria-label="Toggle password visibility" style="position: absolute; right: 0.5rem; background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; padding: 4px;">
+              <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+          ${currentTab === 'signup' ? `
+            <div id="password-strength-container" style="margin-top: 0.4rem;">
+              <div style="display: flex; gap: 4px; height: 3px; width: 100%; margin-bottom: 4px;">
+                <div id="str-bar-1" style="flex: 1; border-radius: 2px; background: rgba(255,255,255,0.1); transition: background 0.2s;"></div>
+                <div id="str-bar-2" style="flex: 1; border-radius: 2px; background: rgba(255,255,255,0.1); transition: background 0.2s;"></div>
+                <div id="str-bar-3" style="flex: 1; border-radius: 2px; background: rgba(255,255,255,0.1); transition: background 0.2s;"></div>
+                <div id="str-bar-4" style="flex: 1; border-radius: 2px; background: rgba(255,255,255,0.1); transition: background 0.2s;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
+                <span id="password-strength-label" style="color: var(--text-muted);">Strength: Minimum 8 characters</span>
+                <span id="password-length-counter" style="color: var(--text-muted);">0 / 8 min</span>
+              </div>
+            </div>
+          ` : ''}
         </div>
+
+        ${currentTab === 'login' ? `
+          <div style="display: flex; justify-content: flex-end; margin-top: -0.2rem; margin-bottom: 0.15rem;">
+            <button type="button" id="btn-forgot-password-link" style="background: none; border: none; color: var(--secondary); font-size: 0.8rem; cursor: pointer; text-decoration: underline; padding: 2px 0;">
+              Forgot Password?
+            </button>
+          </div>
+        ` : ''}
 
         ${currentTab === 'signup' ? `
           <div style="margin: 0.2rem 0; padding: 0.6rem 0.75rem; background: rgba(0,0,0,0.25); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
@@ -152,6 +182,108 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
       tabSignup.addEventListener('click', () => { currentTab = 'signup'; updateView(); });
     }
 
+    // Toggle Password Visibility
+    const togglePassBtn = root.querySelector('#toggle-auth-password');
+    const passInput = root.querySelector('#auth-password');
+    if (togglePassBtn && passInput) {
+      togglePassBtn.addEventListener('click', () => {
+        const isPassword = passInput.type === 'password';
+        passInput.type = isPassword ? 'text' : 'password';
+        togglePassBtn.innerHTML = isPassword
+          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
+          : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+      });
+    }
+
+    // Dynamic password strength indicator for signup
+    if (currentTab === 'signup' && passInput) {
+      passInput.addEventListener('input', () => {
+        const val = passInput.value;
+        const bar1 = root.querySelector('#str-bar-1');
+        const bar2 = root.querySelector('#str-bar-2');
+        const bar3 = root.querySelector('#str-bar-3');
+        const bar4 = root.querySelector('#str-bar-4');
+        const label = root.querySelector('#password-strength-label');
+        const counter = root.querySelector('#password-length-counter');
+
+        if (!bar1) return;
+
+        const len = val.length;
+        if (counter) {
+          counter.textContent = `${len} / 8 min`;
+          counter.style.color = len >= 8 ? '#34d399' : 'var(--text-muted)';
+        }
+
+        if (len === 0) {
+          bar1.style.background = 'rgba(255,255,255,0.1)';
+          bar2.style.background = 'rgba(255,255,255,0.1)';
+          bar3.style.background = 'rgba(255,255,255,0.1)';
+          bar4.style.background = 'rgba(255,255,255,0.1)';
+          if (label) {
+            label.textContent = 'Strength: Minimum 8 characters';
+            label.style.color = 'var(--text-muted)';
+          }
+          return;
+        }
+
+        if (len < 8) {
+          bar1.style.background = '#f43f5e';
+          bar2.style.background = 'rgba(255,255,255,0.1)';
+          bar3.style.background = 'rgba(255,255,255,0.1)';
+          bar4.style.background = 'rgba(255,255,255,0.1)';
+          if (label) {
+            label.textContent = `Too short (${8 - len} more character${8 - len > 1 ? 's' : ''} needed)`;
+            label.style.color = '#f43f5e';
+          }
+          return;
+        }
+
+        // Evaluation for length >= 8
+        let score = 1;
+        if (len >= 12) score++;
+        if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+        if (/[0-9]/.test(val) || /[^A-Za-z0-9]/.test(val)) score++;
+
+        if (score === 1) {
+          bar1.style.background = '#f59e0b';
+          bar2.style.background = 'rgba(255,255,255,0.1)';
+          bar3.style.background = 'rgba(255,255,255,0.1)';
+          bar4.style.background = 'rgba(255,255,255,0.1)';
+          if (label) {
+            label.textContent = 'Strength: Fair (valid length)';
+            label.style.color = '#f59e0b';
+          }
+        } else if (score === 2) {
+          bar1.style.background = '#38bdf8';
+          bar2.style.background = '#38bdf8';
+          bar3.style.background = 'rgba(255,255,255,0.1)';
+          bar4.style.background = 'rgba(255,255,255,0.1)';
+          if (label) {
+            label.textContent = 'Strength: Good';
+            label.style.color = '#38bdf8';
+          }
+        } else if (score === 3) {
+          bar1.style.background = '#38bdf8';
+          bar2.style.background = '#38bdf8';
+          bar3.style.background = '#38bdf8';
+          bar4.style.background = 'rgba(255,255,255,0.1)';
+          if (label) {
+            label.textContent = 'Strength: Very Good';
+            label.style.color = '#38bdf8';
+          }
+        } else {
+          bar1.style.background = '#34d399';
+          bar2.style.background = '#34d399';
+          bar3.style.background = '#34d399';
+          bar4.style.background = '#34d399';
+          if (label) {
+            label.textContent = 'Strength: Strong';
+            label.style.color = '#34d399';
+          }
+        }
+      });
+    }
+
     // Role radio highlight visual
     root.querySelectorAll('.role-selector').forEach(el => {
       const radio = el.querySelector('input[type="radio"]');
@@ -202,6 +334,32 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
           const roleRadio = root.querySelector('input[name="auth-role"]:checked');
           const role = roleRadio ? roleRadio.value : 'Candidate';
           const consent = root.querySelector('#auth-consent').checked;
+
+          // Client-side password validation
+          if (!password || !password.trim()) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = 'rgba(244,63,94,0.15)';
+            alertBox.style.color = '#fda4af';
+            alertBox.style.border = '1px solid rgba(244,63,94,0.3)';
+            alertBox.textContent = 'Password cannot be empty or contain only whitespace.';
+            return;
+          }
+          if (password.length < 8) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = 'rgba(244,63,94,0.15)';
+            alertBox.style.color = '#fda4af';
+            alertBox.style.border = '1px solid rgba(244,63,94,0.3)';
+            alertBox.textContent = 'Password must be at least 8 characters long.';
+            return;
+          }
+          if (password.length > 128) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = 'rgba(244,63,94,0.15)';
+            alertBox.style.color = '#fda4af';
+            alertBox.style.border = '1px solid rgba(244,63,94,0.3)';
+            alertBox.textContent = 'Password cannot exceed 128 characters.';
+            return;
+          }
 
           try {
             const res = await authState.register({ name, email, password, role, consent });
@@ -284,6 +442,7 @@ export function renderAuthModal(defaultMode = 'login', onAuthSuccess) {
         }
       });
     }
+
   }
 
   document.body.appendChild(root);

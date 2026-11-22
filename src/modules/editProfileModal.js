@@ -196,12 +196,15 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                 <div class="input-group" style="margin-bottom: 0;">
-                  <label class="input-label">New Password</label>
-                  <input type="password" id="input-new-pass" class="input-text" placeholder="••••••••" required />
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                    <label class="input-label" style="margin-bottom: 0;">New Password</label>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">Min. 8 chars</span>
+                  </div>
+                  <input type="password" id="input-new-pass" class="input-text" placeholder="••••••••••••" required />
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
-                  <label class="input-label">Confirm New Password</label>
-                  <input type="password" id="input-confirm-pass" class="input-text" placeholder="••••••••" required />
+                  <label class="input-label" style="margin-bottom: 0.2rem;">Confirm New Password</label>
+                  <input type="password" id="input-confirm-pass" class="input-text" placeholder="••••••••••••" required />
                 </div>
               </div>
               <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 1rem;">
@@ -393,6 +396,18 @@ export function renderEditProfileModal(currentUser, onProfileUpdated, defaultTab
           const next = root.querySelector('#input-new-pass').value;
           const confirm = root.querySelector('#input-confirm-pass').value;
 
+          if (!next || !next.trim()) {
+            showAlert('New password cannot be empty or contain only whitespace.');
+            return;
+          }
+          if (next.length < 8) {
+            showAlert('New password must be at least 8 characters long.');
+            return;
+          }
+          if (next.length > 128) {
+            showAlert('New password cannot exceed 128 characters.');
+            return;
+          }
           if (next !== confirm) {
             showAlert('New password and confirmation do not match.');
             return;

@@ -45,14 +45,21 @@ export async function syncWithPythonBackend() {
       }
     }
 
-    const iRes = await fetch(`${API_BASE}/interviews`, { headers, signal: controller.signal }).catch(() => null);
-    clearTimeout(tId);
+    // Only fetch interviews if the user is authenticated (has a token).
+    // The /api/interviews endpoint requires authentication; calling it
+    // without a token produces a 401 Unauthorized console error.
+    if (token) {
+      const iRes = await fetch(`${API_BASE}/interviews`, { headers, signal: controller.signal }).catch(() => null);
+      clearTimeout(tId);
 
-    if (iRes && iRes.ok) {
-      const iJson = await iRes.json();
-      if (iJson.success && iJson.interviews?.length) {
-        localStorage.setItem(STORAGE_INTERVIEWS, JSON.stringify(iJson.interviews));
+      if (iRes && iRes.ok) {
+        const iJson = await iRes.json();
+        if (iJson.success && iJson.interviews?.length) {
+          localStorage.setItem(STORAGE_INTERVIEWS, JSON.stringify(iJson.interviews));
+        }
       }
+    } else {
+      clearTimeout(tId);
     }
   } catch (err) {
     console.info('Database offline fallback active:', err?.message);
@@ -100,8 +107,15 @@ function initStorage() {
     localStorage.setItem(STORAGE_USERS, JSON.stringify(defaultUsers));
   }
 
+
+  // Initialize real interview storage (empty by default)
   if (!localStorage.getItem(STORAGE_INTERVIEWS)) {
-    const defaultInterviews = [
+    localStorage.setItem(STORAGE_INTERVIEWS, JSON.stringify([]));
+  }
+
+  // Initialize demo interview storage with sample interview
+  if (!localStorage.getItem(STORAGE_DEMO_INTERVIEWS)) {
+    const demoInterviews = [
       {
         id: 'inv_101',
         userId: 'usr_cand_1',
@@ -127,10 +141,11 @@ function initStorage() {
         agreementWithHumanScore: 94,
         questionsCount: 4,
         status: 'Completed',
-        feedbackSummary: 'Demonstrated high competence in Redis caching layers and asynchronous task queues. Refine runtime metrics on queue backpressure.'
+        feedbackSummary: 'Demonstrated high competence in Redis caching layers and asynchronous task queues. Refine runtime metrics on queue backpressure.',
+        isDemo: true
       }
     ];
-    localStorage.setItem(STORAGE_INTERVIEWS, JSON.stringify(defaultInterviews));
+    localStorage.setItem(STORAGE_DEMO_INTERVIEWS, JSON.stringify(demoInterviews));
   }
 }
 
@@ -168,15 +183,22 @@ export const authState = {
     if (!consent) {
       throw new Error('Candidate/User consent is mandatory under privacy regulations.');
     }
+    if (!password || !password.trim()) {
+      throw new Error('Password cannot be empty or contain only whitespace.');
+    }
+    if (password.length < 8) {
+      throw new Error('Password must be at least 8 characters long.');
+    }
+    if (password.length > 128) {
+      throw new Error('Password cannot exceed 128 characters.');
+    }
 
-    const passwordHash = await sha256(password);
-
-    // 1. Try Python SQLite API
+    // 1. Try Python API
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, passwordHash, role, consent })
+        body: JSON.stringify({ name, email, password, role, consent })
       });
       if (res.ok) {
         const json = await res.json();
@@ -191,7 +213,7 @@ export const authState = {
         if (errJson.detail) throw new Error(errJson.detail);
       }
     } catch (e) {
-      if (e.message && !e.message.includes('fetch')) {
+      if (e.message && !e.message.includes('fetch') && e.message !== 'Load failed' && !e.message.includes('NetworkError')) {
         throw e;
       }
       throw new Error(e.message || 'Registration service unavailable. Please check your network connection.');
@@ -232,14 +254,12 @@ export const authState = {
   },
 
   async login(email, password) {
-    const passwordHash = await sha256(password);
-
-    // 1. Try Python SQLite API
+    // 1. Try Python API
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, passwordHash })
+        body: JSON.stringify({ email, password })
       });
       if (res.ok) {
         const json = await res.json();
@@ -256,7 +276,7 @@ export const authState = {
         if (errJson.detail) throw new Error(errJson.detail);
       }
     } catch (e) {
-      if (e.message && !e.message.includes('fetch')) {
+      if (e.message && !e.message.includes('fetch') && e.message !== 'Load failed' && !e.message.includes('NetworkError')) {
         throw e;
       }
       console.info('Using local login fallback');
@@ -269,7 +289,8 @@ export const authState = {
     if (!user) {
       throw new Error('No account found with this email.');
     }
-    if (user.passwordHash !== passwordHash) {
+    const legacyHash = await sha256(password);
+    if (user.passwordHash !== password && user.passwordHash !== legacyHash) {
       throw new Error('Incorrect password provided.');
     }
     if (!user.verified) {
@@ -331,27 +352,37 @@ export const authState = {
   },
 
   async changePassword(userId, currentPassword, newPassword) {
-    const currHash = await sha256(currentPassword);
-    const newHash = await sha256(newPassword);
+    if (!newPassword || !newPassword.trim()) {
+      throw new Error('New password cannot be empty or contain only whitespace.');
+    }
+    if (newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters long.');
+    }
+    if (newPassword.length > 128) {
+      throw new Error('New password cannot exceed 128 characters.');
+    }
 
     try {
       const res = await fetch(`${API_BASE}/auth/change-password`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ userId, currentPasswordHash: currHash, newPasswordHash: newHash })
+        body: JSON.stringify({ userId, currentPassword, newPassword })
       });
       if (res.ok) return true;
+      const errJson = await res.json().catch(() => ({}));
+      if (errJson.detail) throw new Error(errJson.detail);
     } catch (e) {
-      // fallback
+      if (e.message && !e.message.includes('fetch') && e.message !== 'Load failed' && !e.message.includes('NetworkError')) throw e;
     }
 
     const users = this.getUsers();
     const user = users.find(u => u.id === userId);
     if (!user) throw new Error('User not found.');
-    if (user.passwordHash !== currHash) {
+    const currHash = await sha256(currentPassword);
+    if (user.passwordHash !== currentPassword && user.passwordHash !== currHash) {
       throw new Error('Current password is incorrect.');
     }
-    user.passwordHash = newHash;
+    user.passwordHash = newPassword;
     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
     this.setCurrentUser(user);
     return true;
@@ -429,10 +460,23 @@ export const interviewStore = {
     return JSON.parse(localStorage.getItem(STORAGE_INTERVIEWS) || '[]');
   },
 
-  getUserInterviews(userId) {
-    return this.getAll().filter(i => i.userId === userId || i.user_id === userId);
+  // Get demo interviews (sample only)
+  getDemoInterviews() {
+    return JSON.parse(localStorage.getItem(STORAGE_DEMO_INTERVIEWS) || '[]');
   },
-
+  // Get demo interviews for a specific user
+  getDemoUserInterviews(userId) {
+    return this.getDemoInterviews().filter(i => i.userId === userId);
+  },
+  // Return real interviews for a specific user (excluding demo entries)
+  getUserInterviews(userId) {
+    return this.getAll().filter(i => (i.userId === userId || i.user_id === userId) && !i.isDemo);
+  },
+  // Return combined real + demo interviews for UI that wants both
+  getCombinedUserInterviews(userId) {
+    return [...this.getUserInterviews(userId), ...this.getDemoUserInterviews(userId)];
+  },
+  
   async syncWithBackend(userId) {
     try {
       const headers = getAuthHeaders();
@@ -462,7 +506,8 @@ export const interviewStore = {
           });
 
           // Preserve local records that might not yet be synced
-          const remainingLocal = currentAll.filter(i => !backendIds.has(i.id) && (!userId || i.userId !== userId));
+          // Preserve local records that might not yet be synced and exclude demo entries
+          const remainingLocal = currentAll.filter(i => !backendIds.has(i.id) && (!userId || i.userId !== userId) && !i.isDemo);
           const merged = [...normalizedBackend, ...remainingLocal];
           localStorage.setItem(STORAGE_INTERVIEWS, JSON.stringify(merged));
           return this.getUserInterviews(userId);
